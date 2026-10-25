@@ -143,7 +143,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 #coinpop { left: 50%; top: 56%; transform: translateX(-50%); font-family: var(--display); font-weight: 800; color: #ffd166; text-shadow: 0 2px 10px rgba(0,0,0,0.6); opacity: 0; }
 #coinpop.go { animation: coinUp 0.9s ease-out forwards; }
 @keyframes coinUp { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -46px); } }
-#top .coins { color: #ffd166; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.04em; }
+#top .coins { display: none; color: #ffd166; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.04em; }
 @media (max-width: 560px) { .modes { grid-template-columns: 1fr; } }
 #pkpick { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--line); }
 #pkpick[hidden] { display: none; }
@@ -163,9 +163,9 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 <div class="hud" id="top" hidden><small>Kills</small><span class="big" id="kills">0</span><span class="coins">Coins <span id="coinhud">0</span></span></div>
 <div class="hud" id="streakhud" hidden></div>
 <div class="hud" id="timer" hidden>1:30</div>
-<div class="hud" id="pkhud" hidden><small id="pkname">Level 1</small><b id="pktime">0:00.00</b><span id="pkcp">Checkpoint 0/0</span><br><small id="pkbest"></small></div>
+<div class="hud" id="pkhud" hidden><small id="pkname">Level 1</small><b id="pktime">0:00.00</b><span id="pkcp">Falls 0</span><br><small id="pkbest"></small></div>
 <div class="hud" id="pkdone" hidden></div>
-<div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; N: next level</div>
+<div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; B / N: previous / next level</div>
 <div class="hud" id="bossbar" hidden><span id="bossname">Boss</span><div><i id="bossfill"></i></div></div>
 <div class="hud" id="hp" hidden><small>Health</small><div id="hpbar"><div id="hpfill"></div></div></div>
 <div class="hud" id="ammo" hidden><small id="ammolabel">Ammo</small><b id="mag">30</b> <span id="magmax">/ 30</span></div>
@@ -185,9 +185,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     <h1 id="title">Purple <em>Arena</em></h1>
     <div class="modes" id="modes" role="radiogroup" aria-label="Game mode">
       <button class="mode" type="button" role="radio" data-mode="dm"><b>Deathmatch</b>Players against players. 1:30 matches, most kills wins.</button>
-      <button class="mode" type="button" role="radio" data-mode="camp"><b>Campaign</b>Co-op in a huge dark forest. 10 levels, 4 bosses. Earn coins.</button>
-      <button class="mode" type="button" role="radio" data-mode="endless"><b>Endless</b>Co-op waves, one life. The map changes every wave.</button>
-      <button class="mode" type="button" role="radio" data-mode="pk"><b>Parkour</b>20 timed levels, bunny hop, best times per level.</button>
+      <button class="mode" type="button" role="radio" data-mode="pk"><b>Parkour</b>10 levels in 10 biomes, bunny hop, best times per level.</button>
     </div>
     <div id="pkpick" hidden><button id="pkprev" type="button" aria-label="Previous level">&lsaquo;</button><div><span id="pklv">Level 1</span><small id="pkpb"></small></div><button id="pknext" type="button" aria-label="Next level">&rsaquo;</button></div>
     <p id="msg"></p>
@@ -197,7 +195,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
         <div class="swl">Shirt color</div><div class="swatches" id="swatches" role="group" aria-label="Shirt color"></div>
         <div class="swl">Skin tone</div><div class="swatches tones" id="tones" role="group" aria-label="Skin tone"></div>
       </details>
-      <details><summary>Weapons</summary>
+      <details hidden><summary>Weapons</summary>
         <div class="wallet">Coins: <span id="walletv">0</span></div>
         <div class="shop" id="shop"></div>
         <div class="note">Weapons are used in Campaign and Endless. In Deathmatch everyone has the rifle.</div>
@@ -211,7 +209,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
           <li><b>Move</b><span>WASD (ZQSD on a French keyboard), Shift to run, Space to jump</span></li>
           <li><b>Shoot</b><span>Left click, hold for full auto. R reloads. Headshots deal double.</span></li>
           <li><b>Dash</b><span>E, a quick burst (not in Parkour). Low crates and barriers can be jumped on.</span></li>
-          <li><b>Parkour</b><span>Hold Space to bunny hop. In the air, turn the mouse and hold A or D to gain speed. R restarts the level, N goes to the next one.</span></li>
+          <li><b>Parkour</b><span>Hold Space to bunny hop. In the air, turn the mouse and hold A or D to gain speed. R restarts the level, N and B switch to the next or previous level.</span></li>
           <li><b>Pause</b><span>Esc</span></li>
         </ul>
       </details>
@@ -264,14 +262,16 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   const TONES = ['#f1c9a5', '#e0ac82', '#c68863', '#8d5a3b', '#5a3a26'];
   const COLORS = ['#b46bff', '#ff4d7a', '#4ad1c2', '#ffb347', '#7aa8ff', '#9be15d', '#f1eaff', '#ff7a45'];
   const MODES = { dm: 'Deathmatch', camp: 'Campaign', endless: 'Endless', pk: 'Parkour' };
-  const PK_NAMES = ['Night Forest', 'Sunken Docks', 'Factory Line', 'Crystal Cave', 'Neon Sky'];
-  let pkUnlocked = 1, pkPB = {};
-  try { pkUnlocked = Math.max(1, +localStorage.getItem('parena_pk_unl') || 1); pkPB = JSON.parse(localStorage.getItem('parena_pk_pb') || '{}'); } catch (e) {}
-  function savePk() { try { localStorage.setItem('parena_pk_unl', pkUnlocked); localStorage.setItem('parena_pk_pb', JSON.stringify(pkPB)); } catch (e) {} }
+  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space'];
+  const PK_N = PK_NAMES.length;
+  let pkUnlocked = PK_N, pkPB = {};   // every level is open from the start
+  try { pkPB = JSON.parse(localStorage.getItem('parena_pk_pb2') || '{}'); } catch (e) {}
+  function savePk() { try { localStorage.setItem('parena_pk_pb2', JSON.stringify(pkPB)); } catch (e) {} }
 
   // ---------- settings and wallet (saved in this browser) ----------
   const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'camp', pkLevel: 1 };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem('parena_online3') || '{}')); } catch (e) {}
+  if (cfg.mode !== 'dm' && cfg.mode !== 'pk') cfg.mode = 'dm';
   function saveCfg() { try { localStorage.setItem('parena_online3', JSON.stringify(cfg)); } catch (e) {} }
   const wallet = { coins: 0, owned: ['rifle'], equipped: 'rifle' };
   try { Object.assign(wallet, JSON.parse(localStorage.getItem('parena_wallet') || '{}')); } catch (e) {}
@@ -320,7 +320,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   }
   function renderModes() {
     document.querySelectorAll('.mode').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === cfg.mode)));
-    const m = { pk: 'Race through 20 levels of platforms. Hold Space to bunny hop, strafe in the air to build speed. Your times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
+    const m = { pk: '10 levels, 10 biomes, all open. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
     if (state === 'menu') setMsg(m[cfg.mode]);
   }
   document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); }));
@@ -328,9 +328,9 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     $('pkpick').hidden = cfg.mode !== 'pk';
     cfg.pkLevel = Math.max(1, Math.min(pkUnlocked, cfg.pkLevel || 1));
     const L = cfg.pkLevel;
-    $('pklv').textContent = 'Level ' + L + ' - ' + PK_NAMES[Math.floor((L - 1) / 4)];
+    $('pklv').textContent = 'Level ' + L + ' - ' + PK_NAMES[L - 1];
     $('pkpb').textContent = pkPB[L] ? 'Your best: ' + fmtT(pkPB[L]) : 'No time yet';
-    $('pkprev').disabled = L <= 1; $('pknext').disabled = L >= Math.min(20, pkUnlocked);
+    $('pkprev').disabled = L <= 1; $('pknext').disabled = L >= PK_N;
   }
   $('pkprev').addEventListener('click', () => { cfg.pkLevel--; saveCfg(); renderPick(); });
   $('pknext').addEventListener('click', () => { cfg.pkLevel++; saveCfg(); renderPick(); });
@@ -374,10 +374,16 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     cave:    { sky: [0x040302, 0x090706, 0x0d0a08], fog: [0x060403, 4, 32], hemi: [0x6b5a7a, 0x1a1210, 0.4], sun: [0x8070a0, 0.25], floor: 'rock', out: 'rock', edge: 0x18110d, lantern: 1, crystals: 1 },
     flooded: { sky: [0x28506a, 0x5b8aa0, 0x9fc1cc], fog: [0x3b6d80, 8, 58], hemi: [0xbfe3f0, 0x2a4a50, 0.75], sun: [0xdff4ff, 0.75], floor: 'sand', out: 'sand', edge: 0x2c4a52, water: 0.3 },
     water:   { sky: [0x0f4c7a, 0x4a97c2, 0x9fd3e6], fog: [0x3f8cb5, 30, 150], hemi: [0xd5f0ff, 0x2f5f70, 0.85], sun: [0xffffff, 0.9], floor: 'sand', out: 'sand', edge: 0x2c4a52, pkWater: 1 },
-    neon:    { sky: [0x02000a, 0x10063a, 0x2a0a5a], fog: [0x0a0420, 30, 170], hemi: [0x8a6bff, 0x1a0a40, 0.7], sun: [0xb08cff, 0.5], floor: 'rock', out: 'rock', edge: 0x14082e, stars: 1, glow: 1 }
+    neon:    { sky: [0x02000a, 0x10063a, 0x2a0a5a], fog: [0x0a0420, 30, 170], hemi: [0x8a6bff, 0x1a0a40, 0.7], sun: [0xb08cff, 0.5], floor: 'rock', out: 'rock', edge: 0x14082e, stars: 1, glow: 0x2c1670, grid: 1 },
+    desert:  { sky: [0x2f78c4, 0x8fbfe6, 0xf6dcae], fog: [0xe9cf9c, 40, 190], hemi: [0xfff1d2, 0xb08850, 0.95], sun: [0xfff2d0, 1.15], floor: 'sand', out: 'sand', edge: 0xc9a066 },
+    ice:     { sky: [0x7fa8d4, 0xc4dcee, 0xf2f8fc], fog: [0xdbe8f3, 35, 170], hemi: [0xeaf4ff, 0x7a8fa5, 1.0], sun: [0xffffff, 0.95], floor: 'snow', out: 'snow', edge: 0xdbe8f3 },
+    volcano: { sky: [0x180404, 0x461008, 0x8a2a0c], fog: [0x2a0a05, 25, 140], hemi: [0xff9a5a, 0x3a0f05, 0.75], sun: [0xff7a3a, 0.6], floor: 'rock', out: 'rock', edge: 0x2a1410, glow: 0x4a1a08, lava: 1, embers: 1 },
+    abyss:   { sky: [0x010a14, 0x03203a, 0x063a5a], fog: [0x03182b, 10, 90], hemi: [0x2a6a9a, 0x04101a, 0.6], sun: [0x4aa0d0, 0.35], floor: 'rock', out: 'rock', edge: 0x063a5a, glow: 0x0d3a44, pkWater: 1, lantern: 1 },
+    space:   { sky: [0x000004, 0x05031a, 0x0d0630], fog: [0x03010f, 80, 300], hemi: [0x8a8aff, 0x10102a, 0.65], sun: [0xffffff, 0.85], floor: 'rock', out: 'rock', edge: 0x10102a, stars: 1, glow: 0x1c1c44, void: 1 }
   };
   const FLOORS = {
     asphalt: () => gtex('asphalt', T.asphalt, 15, 15), grass: () => gtex('grass', T.grass, 40, 40), leaf: () => gtex('floorleaf', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#26301c'; x.fillRect(0, 0, w, h); noise(x, w, h, 5000, 0.45, false); noise(x, w, h, 2500, 0.18, true); }), 60, 60),
+    snow: () => gtex('snow', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#e6eef5'; x.fillRect(0, 0, w, h); noise(x, w, h, 2500, 0.1, false); noise(x, w, h, 1500, 0.35, true); }), 50, 50),
     metal: () => gtex('metal', T.metal, 40, 40), rock: () => gtex('floorrock', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#3a3330'; x.fillRect(0, 0, w, h); noise(x, w, h, 4500, 0.45, false); noise(x, w, h, 2200, 0.2, true); }), 50, 50),
     sand: () => gtex('sand', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#b9a577'; x.fillRect(0, 0, w, h); noise(x, w, h, 4000, 0.3, false); noise(x, w, h, 2000, 0.25, true); }), 50, 50)
   };
@@ -421,7 +427,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       case 'pipe': return L('pipe', () => gtex('metal', T.metal, 1, 4));
       case 'crystal': return lam('crystal', () => new THREE.MeshBasicMaterial({ color: 0xa77bff }));
       default: { // parkour platforms
-        const glow = th.glow ? { emissive: new THREE.Color(0x2c1670) } : {};
+        const glow = th.glow ? { emissive: new THREE.Color(th.glow) } : {};
         if (kind === 'start') return lam('pkstart' + col + th.glow, () => new THREE.MeshLambertMaterial({ color: col, map: gtex('flat', () => T.flat('#9a9a9a'), 3, 3), emissive: new THREE.Color(0x1d8a4f) }));
         if (kind === 'cp') return lam('pkcp' + col + th.glow, () => new THREE.MeshLambertMaterial({ color: col, map: gtex('flat', () => T.flat('#9a9a9a'), 2, 2), emissive: new THREE.Color(0x2244cc) }));
         if (kind === 'finish') return lam('pkfin' + col + th.glow, () => new THREE.MeshLambertMaterial({ color: col, map: gtex('flat', () => T.flat('#9a9a9a'), 3, 3), emissive: new THREE.Color(0xb88a14) }));
@@ -470,8 +476,15 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     if (th.lantern) { lantern = new THREE.PointLight(0xffd9a0, 1.15, 26, 1.4); lantern.position.set(0, 0.2, 0.3); camera.add(lantern); }
     // floor
     const fy = pk ? pk.kill + 1.0 : -0.02, big = pk ? 4000 : 600;
-    const out = new THREE.Mesh(new THREE.PlaneGeometry(big, big), new THREE.MeshLambertMaterial({ map: gtex(th.out === th.floor ? 'f_' + th.floor : 'o_' + th.out, FLOORS[th.out], big / 8, big / 8) }));
-    out.rotation.x = -Math.PI / 2; out.position.y = fy; out.receiveShadow = true; out.userData.follow = 1; world.add(out);
+    if (!th.void) {
+      const out = new THREE.Mesh(new THREE.PlaneGeometry(big, big), new THREE.MeshLambertMaterial({ map: gtex(th.out === th.floor ? 'f_' + th.floor : 'o_' + th.out, FLOORS[th.out], big / 8, big / 8) }));
+      out.rotation.x = -Math.PI / 2; out.position.y = fy; out.receiveShadow = true; out.userData.follow = 1; world.add(out);
+    }
+    if (th.lava && pk) {
+      const lava = new THREE.Mesh(new THREE.PlaneGeometry(big, big), new THREE.MeshBasicMaterial({ color: 0xff5a1a }));
+      lava.rotation.x = -Math.PI / 2; lava.position.y = pk.kill + 1.5; lava.userData.follow = 1; world.add(lava); glowPulse.push({ material: lava.material, lava: 1 });
+      const ll = new THREE.PointLight(0xff6a2a, 1.2, 60, 1.5); ll.position.set(0, pk.kill + 6, 0); ll.userData.followLight = 1; world.add(ll);
+    }
     if (!pk) {
       const fl = new THREE.Mesh(new THREE.PlaneGeometry(msg.half * 2, msg.half * 2), new THREE.MeshLambertMaterial({ map: gtex('fl_' + th.floor + msg.half, FLOORS[th.floor], msg.half / 2, msg.half / 2) }));
       fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; world.add(fl);
@@ -486,7 +499,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(big, big), new THREE.MeshLambertMaterial({ color: 0x2a86b0, transparent: true, opacity: 0.55 }));
       waterMesh.rotation.x = -Math.PI / 2; waterMesh.position.y = pk ? pk.kill + 1.6 : th.water; waterMesh.userData.follow = 1; world.add(waterMesh);
     }
-    if (th.glow && pk) { // neon grid under the course
+    if (th.grid && pk) { // neon grid under the course
       const grid = new THREE.GridHelper(1200, 240, 0xb46bff, 0x4a1c8a); grid.position.y = pk.kill + 1.1; grid.userData.follow = 2; world.add(grid);
     }
     // boxes
@@ -534,25 +547,37 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   }
   // scenery around a parkour course (no collision)
   function buildDecor(th, pk, msg) {
-    const [x0, x1, z0, z1, , maxY] = pk.bounds, plats = msg.b.filter((e) => e[7] != null).map((e) => [e[1], e[2]]);
+    const [x0, x1, z0, z1, , maxY] = pk.bounds, plats = msg.b.map((e) => [e[1], e[2]]);
     const near = (x, z) => plats.some((p) => Math.abs(p[0] - x) < 9 && Math.abs(p[1] - z) < 9);
     const rnd = (() => { let a = 12345 + pk.lv * 77; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; })();
-    const gy = pk.kill + 1.0, spots = [];
-    for (let i = 0; i < 260 && spots.length < 90; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (!near(x, z)) spots.push([x, z]); }
-    let geo, mat, hMin, hMax;
-    if (mapInfo.th === 'forest') { const t2 = spots.map((s) => [s[0], s[1], 9]); buildTreesTall(t2, gy, maxY - gy + 8); return; }
-    if (mapInfo.th === 'water') { geo = new THREE.CylinderGeometry(0.5, 0.6, 1, 8); mat = lam('bark', () => new THREE.MeshLambertMaterial({ map: gtex('bark', T.bark, 1, 1) })); hMin = 6; hMax = maxY - gy + 4; }
-    else if (mapInfo.th === 'factory') { geo = new THREE.CylinderGeometry(1.1, 1.1, 1, 10); mat = lam('pipe', () => new THREE.MeshLambertMaterial({ map: gtex('metal', T.metal, 1, 4) })); hMin = 10; hMax = maxY - gy + 12; }
-    else if (mapInfo.th === 'cave') { geo = new THREE.ConeGeometry(2.2, 1, 7); mat = lam('rockc', () => new THREE.MeshLambertMaterial({ map: gtex('rockflat', () => T.flat('#6b645e'), 2, 2) })); hMin = 8; hMax = maxY - gy + 8; }
-    else { geo = new THREE.BoxGeometry(2.2, 1, 2.2); mat = new THREE.MeshBasicMaterial({ color: 0x7a3cff, wireframe: true }); hMin = 6; hMax = maxY - gy + 30; }
-    const im = new THREE.InstancedMesh(geo, mat, spots.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
+    const gy = pk.kill + 1.0, spots = [], id = mapInfo.th, span = Math.max(1, maxY - gy);
+    for (let i = 0; i < 400 && spots.length < 90; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (!near(x, z)) spots.push([x, z]); }
+    if (id === 'forest') { buildTreesTall(spots.map((s2) => [s2[0], s2[1], 9]), gy, span + 8); return; }
+    const mm = (c, extra) => new THREE.MeshLambertMaterial(Object.assign({ color: c }, extra || {}));
+    // per biome: geometry, material, [min height, max height], width scale, y mode
+    const B = {
+      water:   { geo: new THREE.CylinderGeometry(0.5, 0.6, 1, 8), mat: lam('bark', () => new THREE.MeshLambertMaterial({ map: gtex('bark', T.bark, 1, 1) })), h: [6, span + 4] },
+      desert:  { geo: new THREE.BoxGeometry(1, 1, 1), mat: mm(0xb98a52), h: [8, span + 10], w: [5, 12] },
+      ice:     { geo: new THREE.ConeGeometry(1.6, 1, 6), mat: mm(0xcfeaf8, { emissive: new THREE.Color(0x203848) }), h: [10, span + 16], w: [1, 2] },
+      factory: { geo: new THREE.CylinderGeometry(1.1, 1.1, 1, 10), mat: lam('pipe', () => new THREE.MeshLambertMaterial({ map: gtex('metal', T.metal, 1, 4) })), h: [10, span + 12] },
+      cave:    { geo: new THREE.ConeGeometry(2.2, 1, 7), mat: lam('rockc', () => new THREE.MeshLambertMaterial({ map: gtex('rockflat', () => T.flat('#6b645e'), 2, 2) })), h: [8, span + 8] },
+      volcano: { geo: new THREE.ConeGeometry(2.6, 1, 7), mat: mm(0x2a1a16, { emissive: new THREE.Color(0x2a0e04) }), h: [10, span + 14] },
+      abyss:   { geo: new THREE.CylinderGeometry(0.35, 0.5, 1, 6), mat: mm(0x1d6a5a, { emissive: new THREE.Color(0x0a3a30) }), h: [8, span + 14] },
+      neon:    { geo: new THREE.BoxGeometry(1, 1, 1), mat: new THREE.MeshBasicMaterial({ color: 0x7a3cff, wireframe: true }), h: [6, span + 30], w: [1.5, 4.5], float: 1 },
+      space:   { geo: new THREE.DodecahedronGeometry(1, 0), mat: mm(0x55557a, { emissive: new THREE.Color(0x14142e) }), h: [1.5, 6], w: [1.5, 7], float: 1, wide: 1 }
+    }[id] || { geo: new THREE.BoxGeometry(1, 1, 1), mat: mm(0x555555), h: [4, 8] };
+    const im = new THREE.InstancedMesh(B.geo, B.mat, spots.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     spots.forEach((sp, i) => {
-      const h = hMin + rnd() * (hMax - hMin), neon = mapInfo.th === 'neon';
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6);
-      m.compose(p.set(sp[0], neon ? gy + 4 + rnd() * (hMax - 4) : gy + h / 2, sp[1]), q, s.set(neon ? 1.5 + rnd() * 3 : 1, neon ? 1.5 + rnd() * 3 : h, neon ? 1.5 + rnd() * 3 : 1)); im.setMatrixAt(i, m);
+      const h = B.h[0] + rnd() * (B.h[1] - B.h[0]), wv = B.w ? B.w[0] + rnd() * (B.w[1] - B.w[0]) : 1;
+      q.setFromAxisAngle(up, rnd() * 6);
+      if (B.float) m.compose(p.set(sp[0], gy + (B.wide ? -10 + rnd() * (span + 40) : 4 + rnd() * B.h[1]), sp[1]), q, s.set(wv, B.wide ? wv : wv, wv));
+      else m.compose(p.set(sp[0], gy + h / 2, sp[1]), q, s.set(B.w ? wv : 1, h, B.w ? wv : 1));
+      im.setMatrixAt(i, m);
     });
     im.instanceMatrix.needsUpdate = true; world.add(im);
-    if (mapInfo.th === 'cave') for (let i = 0; i < 6; i++) { const sp = spots[i]; if (!sp) break; const l = new THREE.PointLight(0x9b6bff, 1.6, 30, 1.5); l.position.set(sp[0], gy + 3, sp[1]); world.add(l); }
+    const lights = { cave: [0x9b6bff, 6], abyss: [0x40ffd0, 6], volcano: [0xff7a2a, 5], space: [0x8a7aff, 3] }[id];
+    if (lights) for (let i = 0; i < lights[1]; i++) { const sp = spots[i]; if (!sp) break; const l = new THREE.PointLight(lights[0], 1.6, 32, 1.5); l.position.set(sp[0], gy + 3 + (id === 'space' ? 10 : 0), sp[1]); world.add(l); }
+    if (id === 'space') { const planet = new THREE.Mesh(new THREE.SphereGeometry(60, 28, 20), new THREE.MeshLambertMaterial({ color: 0x4a2f8a, emissive: new THREE.Color(0x120a30) })); planet.position.set((x0 + x1) / 2 + 220, gy + 80, (z0 + z1) / 2 - 260); world.add(planet); }
   }
   function buildTreesTall(list, gy, tall) {
     const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5, 0.7, 1, 7), lam('bark', () => new THREE.MeshLambertMaterial({ map: gtex('bark', T.bark, 1, 1) })), list.length);
@@ -593,7 +618,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   const P = { x: 0, y: 0, z: 22, vx: 0, vz: 0, vy: 0, yaw: 0, pitch: 0, hp: 100, mag: 30, reloadT: 0, fireT: 0, kick: 0, dashT: 0, dashCd: 0, dashX: 0, dashZ: 0, dead: false, stepT: 0, weapon: 'rifle', fellT: 0 };
   const EYE = 1.7;
   let state = 'menu', phase = 'play', myId = 0, tl = 90, streak = 0, bestKills = 0, runMode = 'dm';
-  let pkLevel = 1, pkCp = 0, pkCpN = 0, pkT0 = 0, pkTime = null, pkDone = false;
+  let pkFalls = 0, pkLevel = 1, pkCp = 0, pkCpN = 0, pkT0 = 0, pkTime = null, pkDone = false;
   let flashT = 0, fovBoost = 0, locked = false, drag = false, mouseDown = false, jumpBuf = 0;
   let tracers = [], sparks = [], decals = [];
   const keys = {}, remotes = new Map(), mobs = new Map();
@@ -746,8 +771,8 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   function onNet(m) {
     if (m.t === 'hi') {
       myId = m.id; runMode = m.mode; P.weapon = myWeapon(); P.mag = WEAPONS[P.weapon].mag; setWeaponLook(P.weapon); streak = 0; streakHud();
-      pkLevel = m.lv || 1; pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud();
-      $('magmax').textContent = '/ ' + WEAPONS[P.weapon].mag; updateAmmo(); $('lbk').textContent = runMode === 'dm' ? 'K / D' : runMode === 'pk' ? 'CP / Falls' : 'K / $';
+      pkLevel = m.lv || 1; pkFalls = 0; pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud();
+      $('magmax').textContent = '/ ' + WEAPONS[P.weapon].mag; updateAmmo(); $('lbk').textContent = runMode === 'dm' ? 'K / D' : runMode === 'pk' ? 'Falls' : 'K / $';
       $('play').disabled = false; startPlaying();
       clearInterval(sendTimer);
       sendTimer = setInterval(() => { if (state === 'play' && !P.dead) wsSend({ t: 'st', x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch }); }, 50);
@@ -757,6 +782,8 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       if (runMode === 'pk') setHud(state === 'play');
     } else if (m.t === 'tp') {
       P.x = m.x; P.y = m.y; P.z = m.z; P.vx = P.vz = P.vy = 0;
+    } else if (m.t === 'pkr') {
+      pkT0 = 0; pkTime = null; pkDone = false; pkFalls = m.f || 0; $('pkdone').hidden = true; pkHud();
     } else if (m.t === 'pks') {
       pkT0 = performance.now(); beep(660, 0.08, 'triangle', 0.05);
     } else if (m.t === 'cp') {
@@ -764,9 +791,8 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     } else if (m.t === 'fin') {
       pkDone = true; pkTime = m.time; lbCache[m.lv] = m.rows;
       if (!pkPB[m.lv] || m.time < pkPB[m.lv]) pkPB[m.lv] = m.time;
-      if (m.lv + 1 > pkUnlocked && m.lv < 20) pkUnlocked = m.lv + 1;
-      savePk(); drawBoard(boardFin, 'FINISH - LEVEL ' + m.lv, m.rows, m.time); drawBoard(boardStart, 'LEVEL ' + m.lv, m.rows);
-      const next = m.lv < 20 ? 'N: next level' : 'That was the last level!';
+            savePk(); drawBoard(boardFin, 'FINISH - LEVEL ' + m.lv, m.rows, m.time); drawBoard(boardStart, 'LEVEL ' + m.lv, m.rows);
+      const next = m.lv < PK_N ? 'N: next level' : 'That was the last level!';
       $('pkdone').innerHTML = `<b>Level ${m.lv} complete</b>${fmtT(m.time)} &middot; rank #${m.rank}${m.pb ? ' &middot; new best!' : ''}<br>R: retry &middot; ${next}`;
       $('pkdone').hidden = false; pkHud();
       [523, 659, 784, 1046, 1318].forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle', 0.07), i * 90));
@@ -848,13 +874,13 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     const rows = list.slice().sort((a, b) => b[8] - a[8] || (runMode === 'dm' || runMode === 'pk' ? a[9] - b[9] : b[9] - a[9]));
     const top = rows.slice(0, 8), me = rows.find((r) => r[0] === myId);
     if (me && !top.includes(me)) top.push(me);
-    $('lbl').innerHTML = top.map((r) => `<li class="${r[0] === myId ? 'me' : ''}"><span style="color:color-mix(in srgb, ${r[10]} 60%, white)">${esc(r[1])}</span><b>${r[8]} / ${r[9]}</b></li>`).join('');
+    $('lbl').innerHTML = top.map((r) => `<li class="${r[0] === myId ? 'me' : ''}"><span style="color:color-mix(in srgb, ${r[10]} 60%, white)">${esc(r[1])}</span><b>${runMode === 'pk' ? r[9] : r[8] + ' / ' + r[9]}</b></li>`).join('');
   }
 
   // ---------- HUD helpers ----------
   function pkHud() {
     const pk = mapInfo.pk; if (!pk) return;
-    $('pkname').textContent = mapInfo.name; $('pkcp').textContent = 'Checkpoint ' + pkCp + '/' + pkCpN;
+    $('pkname').textContent = mapInfo.name; $('pkcp').textContent = 'Falls ' + pkFalls;
     $('pkbest').textContent = pkPB[pk.lv] ? 'Your best ' + fmtT(pkPB[pk.lv]) : 'No time yet';
   }
   function updateAmmo() { $('mag').textContent = P.mag; }
@@ -975,8 +1001,8 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     if (world) {
       if (dome) dome.position.copy(camera.position);
       if (sunL) { sunL.position.set(P.x + 26, P.y + 44, P.z + 18); sunL.target.position.set(P.x, P.y, P.z); }
-      world.children.forEach((o) => { if (o.userData.follow === 1) { o.position.x = Math.round(camera.position.x / 8) * 8; o.position.z = Math.round(camera.position.z / 8) * 8; } else if (o.userData.follow === 2) { o.position.x = Math.round(camera.position.x / 5) * 5; o.position.z = Math.round(camera.position.z / 5) * 5; } });
-      glowPulse.forEach((b, i) => { b.material.opacity = 0.12 + 0.07 * Math.sin(tnow * 2 + i); });
+      world.children.forEach((o) => { if (o.userData.followLight) { o.position.x = camera.position.x; o.position.z = camera.position.z; } if (o.userData.follow === 1) { o.position.x = Math.round(camera.position.x / 8) * 8; o.position.z = Math.round(camera.position.z / 8) * 8; } else if (o.userData.follow === 2) { o.position.x = Math.round(camera.position.x / 5) * 5; o.position.z = Math.round(camera.position.z / 5) * 5; } });
+      glowPulse.forEach((b, i) => { if (b.lava) b.material.color.setHSL(0.04 + 0.01 * Math.sin(tnow * 1.5), 1, 0.5 + 0.06 * Math.sin(tnow * 2)); else b.material.opacity = 0.12 + 0.07 * Math.sin(tnow * 2 + i); });
       if (boardFin) { boardFin.mesh.position.y = boardFin.baseY + Math.sin(tnow * 1.3) * 0.35; boardFin.mesh.rotation.y = Math.atan2(camera.position.x - boardFin.mesh.position.x, camera.position.z - boardFin.mesh.position.z); }
     }
     const turn = (a, b) => { let d = b - a; d = Math.atan2(Math.sin(d), Math.cos(d)); return d * k; };
@@ -1046,7 +1072,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     keys[e.code] = true;
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
-    if (e.code === 'KeyN' && state === 'play' && mapInfo.pk && mapInfo.pk.lv < 20 && mapInfo.pk.lv + 1 <= pkUnlocked) { cfg.pkLevel = mapInfo.pk.lv + 1; saveCfg(); wsSend({ t: 'lvl', n: cfg.pkLevel }); }
+    if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
     if (e.code === 'KeyE') dash();
     if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
   });
