@@ -31,6 +31,7 @@ const wss = new WebSocketServer({ server, maxPayload: 2048 });
 
 // ---- maps live in maps.js; each room has room.map ----
 const PLAYER_H = 1.8;
+const chatLog = [];
 
 // ---- weapons (the client has the same stats) ----
 const WEAPONS = {
@@ -40,6 +41,11 @@ const WEAPONS = {
   sniper:  { dmg: 95, rate: 0.95,  mag: 5,   spread: 0.0015, pellets: 1 },
   lmg:     { dmg: 26, rate: 0.085, mag: 100, spread: 0.022,  pellets: 1 }
 };
+
+// deathmatch loadout: rifle, sniper (one shot, long cooldown) and knife
+const DM_GUNS = { rifle: WEAPONS.rifle, sniper: { dmg: 100, rate: 2.0, spread: 0.0008, pellets: 1 } };
+const STAB_DMG = 50, STAB_BACK = 200, STAB_RANGE = 2.3, STAB_CD = 450, THROW_CD = 2500, KNIFE_SPEED = 38, KNIFE_G = 8;
+const CUR_IDX = { rifle: 0, sniper: 1, knife: 2 };
 
 function pushOut(map, p, r, y) {
   y = y || 0;
@@ -162,16 +168,20 @@ function shoot(room, s, m) {
   if (room.mode === 'pk') return;
   if (room.mode === 'dm' && room.phase !== 'play') return;
   if (room.mode !== 'dm' && room.phase !== 'play' && room.phase !== 'break') return;
-  const W = WEAPONS[room.mode === 'dm' ? 'rifle' : s.weapon] || WEAPONS.rifle;
+  if (room.mode === 'dm' && s.cur === 'knife') return;
+  const gunId = room.mode === 'dm' ? (s.cur === 'sniper' ? 'sniper' : 'rifle') : s.weapon;
+  const W = (room.mode === 'dm' ? DM_GUNS[gunId] : WEAPONS[gunId]) || WEAPONS.rifle;
   const t = Date.now();
-  if (t - s.lastShot < W.rate * 800) return;
-  s.lastShot = t;
+  if (t < s.swapT || t - s.lastShot < W.rate * 800 || (gunId === 'sniper' && t - s.lastSniper < W.rate * 800)) return;
+  s.lastShot = t; if (gunId === 'sniper') s.lastSniper = t;
+  const ads = m.ads ? 1 : 0;
+  const spreadK = gunId === 'sniper' ? (ads ? 1 : 60) : (ads ? 0.4 : 1);   // aiming tightens the spread, a sniper without scope is wild
   const yaw = typeof m.yaw === 'number' && isFinite(m.yaw) ? m.yaw : s.yaw;
   const pitch = clamp(typeof m.pitch === 'number' && isFinite(m.pitch) ? m.pitch : s.pitch, -1.5, 1.5);
   const o = { x: s.x, y: s.y + 1.7, z: s.z }, cp = Math.cos(pitch);
   const hits = new Map(); let first = null;
   for (let i = 0; i < W.pellets; i++) {
-    const d = { x: -Math.sin(yaw) * cp + (Math.random() - 0.5) * W.spread * 2, y: Math.sin(pitch) + (Math.random() - 0.5) * W.spread * 2, z: -Math.cos(yaw) * cp + (Math.random() - 0.5) * W.spread * 2 };
+    const d = { x: -Math.sin(yaw) * cp + (Math.random() - 0.5) * W.spread * spreadK * 2, y: Math.sin(pitch) + (Math.random() - 0.5) * W.spread * spreadK * 2, z: -Math.cos(yaw) * cp + (Math.random() - 0.5) * W.spread * spreadK * 2 };
     const l = Math.hypot(d.x, d.y, d.z); d.x /= l; d.y /= l; d.z /= l;
     let tBest = 120, target = null, head = false;
     for (const b of room.map.boxes) { const tb = rayBox(o, d, b); if (tb < tBest) tBest = tb; }
@@ -184,24 +194,76 @@ function shoot(room, s, m) {
       if (tb < tBest) { tBest = tb; target = v; head = false; }
     }
     if (i === 0) first = { x: o.x + d.x * tBest, y: o.y + d.y * tBest, z: o.z + d.z * tBest };
-    if (target) { const rec = hits.get(target) || { dmg: 0, head: false }; rec.dmg += head ? W.dmg * 2 : W.dmg; rec.head = rec.head || head; hits.set(target, rec); }
+    if (target) { const rec = hits.get(target) || { dmg: 0, head: false, w: gunId === 'sniper' ? 1 : 0 }; rec.dmg += head ? W.dmg * 2 : W.dmg; rec.head = rec.head || head; hits.set(target, rec); }
   }
-  broadcast(room, { t: 'sh', id: s.id, ox: r1(o.x), oy: r1(o.y), oz: r1(o.z), hx: r1(first.x), hy: r1(first.y), hz: r1(first.z) }, s);
+  broadcast(room, { t: 'sh', id: s.id, ox: r1(o.x), oy: r1(o.y), oz: r1(o.z), hx: r1(first.x), hy: r1(first.y), hz: r1(first.z), w: gunId === 'sniper' ? 1 : 0 }, s);
   for (const [target, rec] of hits) {
     hitPlayerDm(room, s, target, rec);
   }
 }
+// ---- knife: stab in melee (2 hits, 1 from behind) and throw (right click) ----
+function canFight(room, s) { return !s.dead && room.mode === 'dm' && room.phase === 'play' && s.cur === 'knife'; }
+function stab(room, s) {
+  if (!canFight(room, s)) return;
+  const t = Date.now(); if (t < s.swapT || t - s.lastStab < STAB_CD) return; s.lastStab = t;
+  const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw);
+  let best = null, bd = STAB_RANGE;
+  for (const v of plist(room)) {
+    if (v === s || v.dead || v.inv > 0 || Math.abs((v.y || 0) - (s.y || 0)) > 1.6) continue;
+    const dx = v.x - s.x, dz = v.z - s.z, d = Math.hypot(dx, dz);
+    if (d > bd || (d > 0.5 && (dx * fx + dz * fz) / d < 0.35)) continue;      // within reach and in front
+    if (blockedLine(room.map, { x: s.x, y: s.y + 1.2, z: s.z }, { x: v.x, y: (v.y || 0) + 1.2, z: v.z })) continue;
+    best = v; bd = d;
+  }
+  broadcast(room, { t: 'sw', id: s.id }, s);
+  if (!best) return;
+  const dx = best.x - s.x, dz = best.z - s.z, d = Math.hypot(dx, dz) || 1;
+  const back = (-Math.sin(best.yaw) * dx - Math.cos(best.yaw) * dz) / d > 0.3;   // the victim looks away from the attacker
+  hitPlayerDm(room, s, best, { dmg: back ? STAB_BACK : STAB_DMG, head: false, w: 2, bs: back });
+}
+function throwKnife(room, s, m) {
+  if (!canFight(room, s)) return;
+  const t = Date.now(); if (t < s.swapT || t - s.lastThrow < THROW_CD) return; s.lastThrow = t;
+  const yaw = typeof m.yaw === 'number' && isFinite(m.yaw) ? m.yaw : s.yaw, pitch = clamp(typeof m.pitch === 'number' && isFinite(m.pitch) ? m.pitch : s.pitch, -1.5, 1.5), cp = Math.cos(pitch);
+  const k = { id: nextKnife++, owner: s, x: s.x, y: s.y + 1.6, z: s.z, vx: -Math.sin(yaw) * cp * KNIFE_SPEED, vy: Math.sin(pitch) * KNIFE_SPEED, vz: -Math.cos(yaw) * cp * KNIFE_SPEED, life: 2.5 };
+  (room.knives = room.knives || []).push(k);
+  broadcast(room, { t: 'kt', id: k.id, x: r1(k.x), y: r1(k.y), z: r1(k.z), vx: r1(k.vx), vy: r1(k.vy), vz: r1(k.vz) });
+}
+let nextKnife = 1;
+function knifeTick(room) {
+  const list = room.knives; if (!list || !list.length) return;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const k = list[i]; let end = 0, hitP = null;
+    const vl = Math.hypot(k.vx * TICK, k.vy * TICK, k.vz * TICK) || 1e-6, o = { x: k.x, y: k.y, z: k.z }, d = { x: k.vx * TICK / vl, y: k.vy * TICK / vl, z: k.vz * TICK / vl };
+    let tb = vl;
+    for (const b of room.map.boxes) { const x = rayBox(o, d, b); if (x < tb) { tb = x; end = 1; } }
+    for (const v of plist(room)) {
+      if (v === k.owner || v.dead || v.inv > 0) continue;
+      const vy = v.y || 0, near = Math.hypot(v.x - o.x, v.z - o.z) < 0.55 && o.y > vy && o.y < vy + 1.9;
+      const x = near ? 0 : rayCyl(o, d, v.x, v.z, 0.55, vy, vy + 1.9);
+      if (x < tb) { tb = x; end = 2; hitP = v; }
+    }
+    k.x += d.x * tb; k.y += d.y * tb; k.z += d.z * tb;
+    k.life -= TICK;
+    if (!end) { k.x = o.x + k.vx * TICK; k.y = o.y + k.vy * TICK; k.z = o.z + k.vz * TICK; k.vy -= KNIFE_G * TICK; if (k.life <= 0 || k.y < -2) end = 1; }
+    if (end) {
+      list.splice(i, 1);
+      broadcast(room, { t: 'kx', id: k.id, x: r1(k.x), y: r1(k.y), z: r1(k.z), h: end === 2 ? 1 : 0 });
+      if (hitP && room.phase === 'play' && room.players.has(k.owner.id)) hitPlayerDm(room, k.owner, hitP, { dmg: 100, head: false, w: 3 });
+    }
+  }
+}
 function hitPlayerDm(room, s, hit, rec) {
   hit.hp -= rec.dmg; hit.hurtT = 0;
-  if (hit.hp > 0) { send(s, { t: 'hm', h: rec.head ? 1 : 0, k: 0 }); send(hit, { t: 'hurt', hp: Math.round(hit.hp) }); return; }
+  if (hit.hp > 0) { send(s, { t: 'hm', h: rec.head ? 1 : 0, k: 0, w: rec.w | 0 }); send(hit, { t: 'hurt', hp: Math.round(hit.hp) }); return; }
   hit.hp = 0; hit.dead = true; hit.deadT = 2.2; hit.deaths++; hit.streak = 0;
   s.kills++; s.streak++; s.best = Math.max(s.best, s.streak);
   if (rec.head) s.heads++;
   s.coinsRun += 10;
-  send(s, { t: 'hm', h: rec.head ? 1 : 0, k: 1, c: 10 });
+  send(s, { t: 'hm', h: rec.head ? 1 : 0, k: 1, c: 10, w: rec.w | 0, bs: rec.bs ? 1 : 0 });
   if (s.streak >= 5) send(s, { t: 'streak', n: s.streak });
   send(hit, { t: 'dead', by: s.name });
-  broadcast(room, { t: 'k', a: s.name, v: hit.name, h: rec.head ? 1 : 0, st: s.streak });
+  broadcast(room, { t: 'k', a: s.name, v: hit.name, h: rec.head ? 1 : 0, st: s.streak, w: rec.w | 0, sk: s.skin | 0, bs: rec.bs ? 1 : 0, x: r1(hit.x), y: r1(hit.y || 0), z: r1(hit.z) });
 }
 // ---- mode logic: deathmatch ----
 function dmBoard(room) {
@@ -212,6 +274,7 @@ function dmNewMatch(room) {
   room.phase = 'play'; room.timeLeft = MATCH_SECONDS;
   room.dmIdx = (room.dmIdx + 1) % DM_MAPS.length; room.map = getMap(DM_MAPS[room.dmIdx]);   // the five maps take turns
   for (const p of room.players.values()) { if (p.ws.readyState === 1) p.ws.send(room.map.wire); p.kills = 0; p.deaths = 0; p.heads = 0; p.streak = 0; p.best = 0; p.coinsRun = 0; respawn(room, p); }
+  room.knives = [];
   broadcast(room, { t: 'new' });
 }
 function dmTick(room) {
@@ -238,14 +301,14 @@ function playersCommon(room) {
 }
 function snapshot(room) {
   const list = plist(room).map((p) => [p.id, p.name, r1(p.x), r1(p.y), r1(p.z), Math.round(p.yaw * 100) / 100, Math.round(p.pitch * 100) / 100,
-    p.dead ? 1 : 0, room.mode === 'pk' ? p.cp : p.kills, room.mode === 'dm' ? p.deaths : room.mode === 'pk' ? p.falls : p.coinsRun, p.color, p.inv > 0 ? 1 : 0, p.tone, p.skin | 0]);
+    p.dead ? 1 : 0, room.mode === 'pk' ? p.cp : p.kills, room.mode === 'dm' ? p.deaths : room.mode === 'pk' ? p.falls : p.coinsRun, p.color, p.inv > 0 ? 1 : 0, p.tone, p.skin | 0, CUR_IDX[p.cur] | 0]);
   const s = JSON.stringify({ t: 's', p: list, m: [], ph: room.phase, ib: room.info, boss: null, tl: Math.max(0, Math.round(room.timeLeft * 10) / 10) });
   for (const p of room.players.values()) if (p.ws.readyState === 1) p.ws.send(s);
 }
 setInterval(() => {
   for (const room of allRooms()) {
     if (room.mode === 'pk' && !room.players.size) continue;
-    if (room.mode === 'dm') { dmTick(room); playersCommon(room); } else room.info = room.map.name;
+    if (room.mode === 'dm') { dmTick(room); knifeTick(room); playersCommon(room); } else room.info = room.map.name;
     snapshot(room);
   }
 }, TICK * 1000);
@@ -296,8 +359,9 @@ wss.on('connection', (ws) => {
       const name = String(m.name || 'Player').replace(/[<>&"'`]/g, '').trim().slice(0, 14) || 'Player';
       me = { id: nextId++, ws, name, color: validColor(m.color) || PALETTE[Math.floor(Math.random() * PALETTE.length)], tone: clamp(Math.floor(+m.tone) || 0, 0, 4), skin: clamp(Math.floor(+m.skin) || 0, 0, 10),
         weapon: WEAPONS[m.weapon] ? m.weapon : 'rifle', room: null, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: 100, dead: false, deadT: 0, inv: 0, hurtT: 99,
-        kills: 0, deaths: 0, heads: 0, streak: 0, best: 0, coinsRun: 0, lastShot: 0, lastSt: Date.now(), cp: 0, pkStart: 0, finished: false, falls: 0 };
+        kills: 0, deaths: 0, heads: 0, streak: 0, best: 0, coinsRun: 0, lastShot: 0, lastSniper: 0, lastStab: 0, lastThrow: 0, swapT: 0, cur: 'rifle', lastChat: 0, lastSt: Date.now(), cp: 0, pkStart: 0, finished: false, falls: 0 };
       enterRoom(me, r);
+      send(me, { t: 'chatlog', l: chatLog });
     } else if (m.t === 'st' && me && !me.dead) {
       if (![m.x, m.y, m.z, m.yaw, m.pitch].every((v) => typeof v === 'number' && isFinite(v))) return;
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
@@ -324,6 +388,20 @@ wss.on('connection', (ws) => {
       }
     } else if (m.t === 'shot' && me) {
       shoot(room, me, m);
+    } else if (m.t === 'stab' && me) {
+      stab(room, me);
+    } else if (m.t === 'throw' && me) {
+      throwKnife(room, me, m);
+    } else if (m.t === 'wep' && me) {
+      if (CUR_IDX[m.w] != null && m.w !== me.cur) { me.cur = m.w; me.swapT = Date.now() + 250; }
+    } else if (m.t === 'chat' && me) {
+      const now = Date.now(); if (now - me.lastChat < 700) return; me.lastChat = now;
+      const text = String(m.x == null ? '' : m.x).replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+      if (!text) return;
+      const msg = { t: 'chat', n: me.name, c: me.color, x: text };
+      chatLog.push(msg); if (chatLog.length > 20) chatLog.shift();
+      const str = JSON.stringify(msg);
+      for (const r of allRooms()) for (const p of r.players.values()) if (p.ws.readyState === 1) p.ws.send(str);       // global: every room hears it
     } else if (m.t === 'fell' && me && room.mode === 'pk') {
       me.falls++; me.pkStart = 0; me.finished = false; respawn(room, me); send(me, { t: 'pkr', f: me.falls });
     } else if (m.t === 'restart' && me && room.mode === 'pk') {
