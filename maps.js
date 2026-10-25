@@ -130,8 +130,8 @@ function gapDist(a, b) {
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
 function parkour(L) {
   const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = (L - 1) / (PK_LEVELS - 1), band = PK_INFO[L - 1];
-  const f = 0.5 + 0.34 * t, V = 8.6, boxes = [], plats = [];
-  const N = 12 + Math.round(L * 3);
+  const f = 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [];     // gentler than before: shorter gaps, bigger platforms
+  const N = 10 + Math.round(L * 2.2);
   const col = band.col;
   const mk = (x, z, w, d, top, kind) => { const b = B(kind || 'plat', x, z, w, d, 0.7, col, top - 0.7); b.top = top; return b; };
   const start = mk(0, 0, 7, 7, 0, 'start'); plats.push(start); boxes.push(start);
@@ -142,20 +142,23 @@ function parkour(L) {
     let placed = null;
     for (let tries = 0; tries < 40 && !placed; tries++) {
       let d2 = dir;
-      if ((r() < 0.12 + 0.3 * t || tries > 8) && !(prevRun && tries <= 20)) { const s = r() < 0.5 ? 1 : -1; d2 = dir[0] === 0 ? [s, 0] : [0, s]; }
-      const last = i === N, run = !last && L >= 3 && i > 1 && placedRunOk && r() < 0.14 + 0.16 * t, size = last ? 6 : Math.max(2.6, (5.0 - 2.4 * t) * (0.85 + r() * 0.4));
-      let w = size, dd = last ? 6 : Math.max(2.6, size * (0.85 + r() * 0.3));
+      if ((r() < 0.1 + 0.2 * t || tries > 8) && !(prevRun && tries <= 20)) { const s = r() < 0.5 ? 1 : -1; d2 = dir[0] === 0 ? [s, 0] : [0, s]; }
+      const last = i === N, run = !last && L >= 4 && i > 1 && placedRunOk && r() < 0.1 + 0.1 * t, size = last ? 6 : Math.max(3.1, (5.6 - 2.1 * t) * (0.85 + r() * 0.4));
+      let w = size, dd = last ? 6 : Math.max(3.1, size * (0.85 + r() * 0.3));
       if (run) { if (d2[0] === 0) { w = 3.4; dd = 12; } else { w = 12; dd = 3.4; } }
-      const up = r() < 0.45 ? r() * (0.35 + 0.65 * t) : -r() * (0.8 + 2 * t);
+      const up = r() < 0.4 ? r() * (0.25 + 0.45 * t) : -r() * (0.6 + 1.4 * t);
       const top = Math.max(-2, prev.top + (last ? Math.min(up, 0) : up));
       const dy = top - prev.top, allow = f * V * airtime(dy);
       if (allow <= 0.6) continue;
       const g = Math.max(1.2, allow * (0.6 + 0.4 * r()) - 0.2);
-      const lat = (r() * 2 - 1) * (0.2 + 1.6 * t);
+      const lat = (r() * 2 - 1) * (0.2 + 1.0 * t);
       const along = (d2[0] !== 0 ? (prev.w + w) / 2 : (prev.d + dd) / 2) + g;
       let x = prev.x + d2[0] * along + (d2[0] === 0 ? lat : 0), z = prev.z + d2[1] * along + (d2[1] === 0 ? lat : 0);
       const c = mk(x, z, w, dd, top, last ? 'finish' : 'plat');
       if (gapDist(prev, c) > allow) { continue; }
+      // keep the scoreboards readable: nothing may stand in front of the start board, and nothing high next to the finish board
+      if (Math.abs(x) - w / 2 < 6.5 && z + dd / 2 > 3.2 && z - dd / 2 < 16) continue;
+      if (last && plats.some((p, k) => k < plats.length - 1 && Math.hypot(p.x - x, p.z - z) < 14 && p.top > top + 1)) continue;
       if (plats.some((p, k) => k < plats.length - 1 && Math.abs(p.top - top) < 4 && overlaps(p, c, 1.5))) continue;
       placed = c; dir = d2; placed.run = run;
     }
@@ -165,13 +168,6 @@ function parkour(L) {
     }
     pathLen += Math.hypot(placed.x - prev.x, placed.z - prev.z);
     plats.push(placed); boxes.push(placed); placedRunOk = !placed.run;
-    if (placed.run) {
-      const along = dir[0] === 0 ? 'z' : 'x';
-      for (const k of (L >= 7 ? [-1, 1] : [0])) {
-        const bx = placed.x + (along === 'x' ? k * 3.2 : 0), bz = placed.z + (along === 'z' ? k * 2.6 : 0);
-        boxes.push(B('barrier', bx, bz, along === 'x' ? 0.6 : 3.4, along === 'x' ? 3.4 : 0.6, 1.0, 0, placed.top));
-      }
-    }
   }
   const fin = plats[plats.length - 1];
   let minY = 0, maxY = 0, minX = 0, maxX = 0, minZ = 0, maxZ = 0;

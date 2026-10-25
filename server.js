@@ -319,20 +319,43 @@ let scores = {};
 try { scores = JSON.parse(fs.readFileSync(SCORE_FILE, 'utf8')); } catch (e) { scores = {}; }
 let saveT = null;
 function saveScores() { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(SCORE_FILE, JSON.stringify(scores), () => {}); }, 2000); }
-function board(lv) { return (scores[lv] || []).slice(0, 10).map((r) => [r.n, r.t]); }
-function recordTime(lv, name, time) {
-  const list = scores[lv] || (scores[lv] = []);
+// each level keeps three boards: today, this month and all time (days and months follow Paris time)
+const dayKey = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+function levelScores(lv) {
+  let s = scores[lv];
+  if (Array.isArray(s)) s = scores[lv] = { all: s };      // old file format
+  if (!s) s = scores[lv] = { all: [] };
+  const dk = dayKey(), mk = dk.slice(0, 7);
+  if (!s.day || s.day.k !== dk) s.day = { k: dk, rows: [] };
+  if (!s.month || s.month.k !== mk) s.month = { k: mk, rows: [] };
+  return s;
+}
+function board(lv) {
+  const s = levelScores(lv), f = (l) => l.slice(0, 10).map((r) => [r.n, r.t]);
+  return { d: f(s.day.rows), m: f(s.month.rows), a: f(s.all) };
+}
+function addTime(list, name, time) {
   const key = name.toLowerCase(), old = list.find((r) => r.n.toLowerCase() === key);
-  let pb = false;
-  if (!old) { list.push({ n: name, t: time }); pb = true; } else if (time < old.t) { old.t = time; old.n = name; pb = true; }
+  let better = false;
+  if (!old) { list.push({ n: name, t: time }); better = true; } else if (time < old.t) { old.t = time; old.n = name; better = true; }
   list.sort((a, b) => a.t - b.t); if (list.length > 50) list.length = 50;
-  if (pb) saveScores();
-  return { pb, rank: list.findIndex((r) => r.n.toLowerCase() === key) + 1 };
+  return better;
+}
+const rankOf = (list, name) => list.findIndex((r) => r.n.toLowerCase() === name.toLowerCase()) + 1;
+function recordTime(lv, name, time) {
+  const s = levelScores(lv);
+  const pb = addTime(s.all, name, time), d = addTime(s.day.rows, name, time), m = addTime(s.month.rows, name, time);
+  if (pb || d || m) saveScores();
+  return { pb, changed: pb || d || m, rank: rankOf(s.all, name), rd: rankOf(s.day.rows, name), rm: rankOf(s.month.rows, name) };
 }
 function sendBoard(lv, to) {
-  const msg = { t: 'lb', lv, rows: board(lv) };
+  const msg = { t: 'lb', lv, b: board(lv) };
   if (to) send(to, msg); else broadcast(pkRoom(lv), msg);
 }
+
+// when the day (or month) turns over, refresh the boards of every level somebody is playing
+let lastDay = dayKey();
+setInterval(() => { const d = dayKey(); if (d === lastDay) return; lastDay = d; for (const r of Object.values(pkRooms)) if (r.players.size) sendBoard(r.level); }, 30000);
 
 // ---- connections ----
 function enterRoom(me, room) {
@@ -383,8 +406,8 @@ wss.on('connection', (ws) => {
         if (time < pk.pathLen / 26) return;      // faster than anybody could run it
         me.finished = true;
         const res = recordTime(room.level, me.name, Math.round(time * 100) / 100);
-        send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, pb: res.pb ? 1 : 0, rows: board(room.level) });
-        if (res.pb) sendBoard(room.level);
+        send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
+        if (res.changed) sendBoard(room.level);
       }
     } else if (m.t === 'shot' && me) {
       shoot(room, me, m);

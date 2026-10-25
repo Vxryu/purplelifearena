@@ -182,7 +182,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 <div class="hud" id="timer" hidden>1:30</div>
 <div class="hud" id="pkhud" hidden><small id="pkname">Level 1</small><b id="pktime">0:00.00</b><span id="pkcp">Falls 0</span><br><small id="pkbest"></small></div>
 <div class="hud" id="pkdone" hidden></div>
-<div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; B / N: previous / next level</div>
+<div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; B / N: previous / next level &middot; V: daily / monthly / all-time board</div>
 <div class="hud" id="bossbar" hidden><span id="bossname">Boss</span><div><i id="bossfill"></i></div></div>
 <div class="hud" id="hp" hidden><small>Health</small><div id="hpbar"><div id="hpfill"></div></div></div>
 <div class="hud" id="ammo" hidden><small id="ammolabel">Ammo</small><b id="mag">30</b> <span id="magmax">/ 30</span></div>
@@ -487,14 +487,15 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     return { mesh, cv, tx, w, h };
   }
   const fmtT = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
-  function drawBoard(b, title, rows, you) {
+  function drawBoard(b, title, rows, you, per) {
     if (!b) return;
     const c = b.cv.getContext('2d'), W = b.cv.width, H = b.cv.height;
     c.clearRect(0, 0, W, H);
     c.fillStyle = 'rgba(18,8,38,0.82)'; c.beginPath(); c.roundRect ? c.roundRect(4, 4, W - 8, H - 8, 28) : c.rect(4, 4, W - 8, H - 8); c.fill();
     c.lineWidth = 6; c.strokeStyle = '#b46bff'; c.stroke();
     c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = '800 38px system-ui, sans-serif'; c.fillText(title, W / 2, 62);
-    c.fillStyle = '#b9a5e8'; c.font = '600 22px system-ui, sans-serif'; c.fillText('BEST TIMES', W / 2, 96);
+    c.font = '700 22px system-ui, sans-serif';
+    ['DAILY', 'MONTHLY', 'ALL-TIME'].forEach((lab, i) => { c.fillStyle = i === per ? '#ffd166' : '#8f7fc0'; c.fillText(i === per ? '[ ' + lab + ' ]' : lab, W / 2 + (i - 1) * 165, 96); });
     c.textAlign = 'left'; c.font = '700 30px system-ui, sans-serif';
     if (!rows.length) { c.textAlign = 'center'; c.fillStyle = '#d9ccf5'; c.fillText('No time yet. Be the first!', W / 2, H / 2 + 10); }
     rows.slice(0, 8).forEach((r, i) => {
@@ -581,7 +582,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       boardStart = makeBoard(7, 5); boardStart.mesh.position.set(0, 3.6, 7.5); boardStart.mesh.rotation.y = Math.PI; world.add(boardStart.mesh);
       boardFin = makeBoard(6, 5); boardFin.mesh.position.set(pk.fin[0], pk.fin[1] + 5, pk.fin[2]); world.add(boardFin.mesh);
       boardFin.baseY = pk.fin[1] + 5;
-      drawBoard(boardStart, 'LEVEL ' + pk.lv, lbCache[pk.lv] || []); drawBoard(boardFin, 'FINISH - LEVEL ' + pk.lv, lbCache[pk.lv] || []);
+      refreshBoards();
     }
     camera.far = pk ? 500 : 300; camera.updateProjectionMatrix();
   }
@@ -644,7 +645,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   // scenery around a parkour course (no collision)
   function buildDecor(th, pk, msg) {
     const [x0, x1, z0, z1, , maxY] = pk.bounds, plats = msg.b.map((e) => [e[1], e[2]]);
-    const near = (x, z) => plats.some((p) => Math.abs(p[0] - x) < 9 && Math.abs(p[1] - z) < 9);
+    const near = (x, z) => plats.some((p) => Math.abs(p[0] - x) < 9 && Math.abs(p[1] - z) < 9) || (Math.abs(x) < 12 && z > 0 && z < 40) || Math.hypot(x - pk.fin[0], z - pk.fin[2]) < 18;   // the two boards stay readable
     const rnd = (() => { let a = 12345 + pk.lv * 77; return () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; })();
     const gy = pk.kill + 1.0, spots = [], id = mapInfo.th, span = Math.max(1, maxY - gy);
     for (let i = 0; i < 400 && spots.length < 90; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (!near(x, z)) spots.push([x, z]); }
@@ -687,6 +688,15 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     [trunk, cone].forEach((im) => { im.instanceMatrix.needsUpdate = true; world.add(im); });
   }
   const lbCache = {};
+  let pkPeriod = 2, pkPerAt = 0;           // 0 daily, 1 monthly, 2 all-time
+  function refreshBoards() {
+    const pk = mapInfo.pk; if (!pk || !boardStart) return;
+    const b = lbCache[pk.lv] || {}, rows = [b.d, b.m, b.a][pkPeriod] || [];
+    drawBoard(boardStart, 'LEVEL ' + pk.lv, rows, null, pkPeriod);
+    drawBoard(boardFin, 'FINISH - LEVEL ' + pk.lv, rows, pkDone ? pkTime : null, pkPeriod);
+  }
+  function nextPeriod(manual) { pkPeriod = (pkPeriod + 1) % 3; if (manual) pkPerAt = performance.now(); refreshBoards(); if (manual) banner(['Daily', 'Monthly', 'All-time'][pkPeriod] + ' leaderboard', 1100); }
+  setInterval(() => { if (mapInfo.pk && state !== 'menu' && performance.now() - pkPerAt > 15000) nextPeriod(false); }, 7000);
 
   function pushOut(p, r, y) {
     for (const b of boxes) {
@@ -937,6 +947,25 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
     sp.scale.set(2.4, 0.6, 1); sp.position.y = y; sp.renderOrder = 10; return sp;
   }
+  // leaderboard rank shown above a player's name in parkour: #1 to #10, and WORLD RECORD HOLDER for the best time
+  function makeTag() {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 64;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    sp.scale.set(4.8, 0.6, 1); sp.position.y = 2.85; sp.renderOrder = 11; sp.visible = false; sp.userData = { c, text: '' }; return sp;
+  }
+  function setTag(sp, text) {
+    if (!sp || sp.userData.text === text) return;
+    sp.userData.text = text; sp.visible = !!text; if (!text) return;
+    const c = sp.userData.c, x = c.getContext('2d'), wr = text[0] === 'W';
+    x.clearRect(0, 0, 512, 64); x.font = '800 ' + (wr ? 38 : 40) + 'px DM Sans, system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(0,0,0,0.7)'; x.fillText(text, 257, 35); x.fillStyle = wr ? '#ffd166' : '#d9b8ff'; x.fillText(text, 256, 33);
+    sp.material.map.needsUpdate = true;
+  }
+  function rankText(name) {
+    const pk = mapInfo.pk; if (!pk || !name) return '';
+    const a = (lbCache[pk.lv] || {}).a || [], i = a.findIndex((r) => r[0].toLowerCase() === name.toLowerCase());
+    return i < 0 ? '' : i === 0 ? 'WORLD RECORD HOLDER' : '#' + (i + 1);
+  }
   function makeHumanoid(o) {
     const g = new THREE.Group(), mats = [];
     const mat = (c, extra) => { const m = new THREE.MeshLambertMaterial(Object.assign({ color: new THREE.Color(c), transparent: true }, extra || {})); mats.push(m); return m; };
@@ -962,9 +991,9 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     if (o.armor) { const am = mat(o.armor); mk(G.plate, am, -0.4, 1.46, 0, g); mk(G.plate, am, 0.4, 1.46, 0, g); }
     if (o.crown) { const cm = mat('#c9a227'); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; mk(G.spike, cm, Math.cos(a) * 0.2, 1.95, Math.sin(a) * 0.2, g); } }
     g.scale.setScalar(o.scale || 1);
-    if (o.name) g.add(nameSprite(o.name, 2.3));
+    const tag = makeTag(); if (o.name) { g.add(nameSprite(o.name, 2.3)); g.add(tag); }
     scene.add(g);
-    return { g, legL, legR, armL, armR, mats, shirt, skin, head, gunM, gunMesh };
+    return { g, legL, legR, armL, armR, mats, shirt, skin, head, gunM, gunMesh, tag };
   }
   function makeRemote(id, name, color, tone) {
     const h = makeHumanoid({ shirt: color, skin: TONES[tone] || TONES[1], hair: tone >= 3 ? '#16110d' : '#3a2a1f', name });
@@ -1055,16 +1084,16 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     } else if (m.t === 'cp') {
       pkCp = m.i; pkCpN = m.n; pkHud(); banner('Checkpoint ' + m.i + '/' + m.n, 1300); [660, 880].forEach((f, i) => setTimeout(() => beep(f, 0.12, 'triangle', 0.06), i * 80));
     } else if (m.t === 'fin') {
-      pkDone = true; pkTime = m.time; lbCache[m.lv] = m.rows;
+      pkDone = true; pkTime = m.time; lbCache[m.lv] = m.b;
       if (!pkPB[m.lv] || m.time < pkPB[m.lv]) pkPB[m.lv] = m.time;
-            savePk(); drawBoard(boardFin, 'FINISH - LEVEL ' + m.lv, m.rows, m.time); drawBoard(boardStart, 'LEVEL ' + m.lv, m.rows);
+            savePk(); refreshBoards();
       const next = m.lv < PK_N ? 'N: next level' : 'That was the last level!';
-      $('pkdone').innerHTML = `<b>Level ${m.lv} complete</b>${fmtT(m.time)} &middot; rank #${m.rank}${m.pb ? ' &middot; new best!' : ''}<br>R: retry &middot; ${next}`;
+      $('pkdone').innerHTML = `<b>Level ${m.lv} complete</b>${fmtT(m.time)} &middot; today #${m.rd} &middot; month #${m.rm} &middot; all-time #${m.rank}${m.pb ? ' &middot; new best!' : ''}<br>R: retry &middot; ${next}`;
       $('pkdone').hidden = false; pkHud();
       [523, 659, 784, 1046, 1318].forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle', 0.07), i * 90));
     } else if (m.t === 'lb') {
-      lbCache[m.lv] = m.rows;
-      if (mapInfo.pk && mapInfo.pk.lv === m.lv) { drawBoard(boardStart, 'LEVEL ' + m.lv, m.rows); drawBoard(boardFin, 'FINISH - LEVEL ' + m.lv, m.rows, pkDone ? pkTime : null); }
+      lbCache[m.lv] = m.b;
+      if (mapInfo.pk && mapInfo.pk.lv === m.lv) { refreshBoards(); pkHud(); }
     } else if (m.t === 'full') {
       $('play').disabled = false; setMsg('This room is full. Try again in a moment.');
     } else if (m.t === 's') {
@@ -1075,6 +1104,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
         if (r[0] === myId) { $('kills').textContent = r[8]; continue; }
         const o = remotes.get(r[0]) || makeRemote(r[0], r[1], r[10], r[12]);
         if (o.color !== r[10]) { o.color = r[10]; o.shirt.color.set(r[10]); }
+        setTag(o.tag, rankText(o.name));
         if (o.skinIdx !== (r[13] | 0)) applyRemoteSkin(o, r[13] | 0);
         if (o.cur !== (r[14] | 0)) { o.cur = r[14] | 0; o.gunMesh.visible = o.cur !== 2; o.gunMesh.scale.z = o.cur === 1 ? 1.6 : 1; }
         if (o.tone !== r[12]) { o.tone = r[12]; o.skin.color.set(TONES[r[12]] || TONES[1]); }
@@ -1161,7 +1191,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   function pkHud() {
     const pk = mapInfo.pk; if (!pk) return;
     $('pkname').textContent = mapInfo.name; $('pkcp').textContent = 'Falls ' + pkFalls;
-    $('pkbest').textContent = pkPB[pk.lv] ? 'Your best ' + fmtT(pkPB[pk.lv]) : 'No time yet';
+    const rk = rankText(cfg.name); $('pkbest').textContent = pkPB[pk.lv] ? 'Your best ' + fmtT(pkPB[pk.lv]) + (rk ? ' · ' + rk : '') : 'No time yet';
   }
   function updateAmmo() { ammoText(); }
   function updateHp() { $('hpfill').style.transform = `scaleX(${Math.max(0, P.hp) / 100})`; }
@@ -1369,6 +1399,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     keys[e.code] = true;
     if ((e.code === 'Enter' || e.code === 'KeyT') && state === 'play' && !e.repeat) { e.preventDefault(); openChat(); return; }
     if (!e.repeat && e.code.startsWith('Digit') && '123'.includes(e.code[5])) setWeapon(SLOTS[+e.code[5] - 1]);
+    if (e.code === 'KeyV' && !e.repeat && state === 'play' && mapInfo.pk) nextPeriod(true);
     if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
