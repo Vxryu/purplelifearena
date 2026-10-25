@@ -7,10 +7,10 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const { getMap, PK_LEVELS } = require('./maps');
+const { getMap, DM_MAPS, PK_LEVELS } = require('./maps');
 
 const PORT = process.env.PORT || 3000;
-const MATCH_SECONDS = 90;
+const MATCH_SECONDS = +process.env.MATCH_S || 90;
 const INTERMISSION = 10;
 const MAX_PER_ROOM = 12;
 const TICK = 0.05;              // 20 Hz
@@ -110,7 +110,7 @@ const plist = (room) => [...room.players.values()];
 
 // ---- rooms ----
 function makeRoom(mode, mapId) {
-  return { mode, map: getMap(mapId), players: new Map(), phase: 'play', timeLeft: MATCH_SECONDS, level: 1, info: '' };
+  return { mode, map: getMap(mapId), players: new Map(), phase: 'play', timeLeft: MATCH_SECONDS, level: 1, info: '', dmIdx: 0 };
 }
 const rooms = { dm: makeRoom('dm', 'arena') };
 const pkRooms = {};
@@ -207,14 +207,16 @@ function hitPlayerDm(room, s, hit, rec) {
 function dmBoard(room) {
   return plist(room).sort((a, b) => b.kills - a.kills || a.deaths - b.deaths).map((p) => [p.id, p.name, p.kills, p.deaths, p.heads, p.best, p.color, p.coinsRun]);
 }
+const nextDmMap = (room) => getMap(DM_MAPS[(room.dmIdx + 1) % DM_MAPS.length]);
 function dmNewMatch(room) {
   room.phase = 'play'; room.timeLeft = MATCH_SECONDS;
-  for (const p of room.players.values()) { p.kills = 0; p.deaths = 0; p.heads = 0; p.streak = 0; p.best = 0; p.coinsRun = 0; respawn(room, p); }
+  room.dmIdx = (room.dmIdx + 1) % DM_MAPS.length; room.map = getMap(DM_MAPS[room.dmIdx]);   // the five maps take turns
+  for (const p of room.players.values()) { if (p.ws.readyState === 1) p.ws.send(room.map.wire); p.kills = 0; p.deaths = 0; p.heads = 0; p.streak = 0; p.best = 0; p.coinsRun = 0; respawn(room, p); }
   broadcast(room, { t: 'new' });
 }
 function dmTick(room) {
   room.timeLeft -= TICK;
-  if (room.phase === 'play' && room.timeLeft <= 0) { room.phase = 'over'; room.timeLeft = INTERMISSION; broadcast(room, { t: 'end', board: dmBoard(room), msg: '' }); }
+  if (room.phase === 'play' && room.timeLeft <= 0) { room.phase = 'over'; room.timeLeft = INTERMISSION; const bd = dmBoard(room); broadcast(room, { t: 'end', board: bd, msg: (bd[0] ? bd[0][1] + ' wins with ' + bd[0][2] + ' kills. ' : '') + 'Next map: ' + nextDmMap(room).name }); }
   else if (room.phase === 'over' && room.timeLeft <= 0) dmNewMatch(room);
   for (const p of room.players.values()) {
     if (p.dead && p.deadT > 0) { p.deadT -= TICK; if (p.deadT <= 0 && room.phase === 'play') respawn(room, p); }
@@ -236,7 +238,7 @@ function playersCommon(room) {
 }
 function snapshot(room) {
   const list = plist(room).map((p) => [p.id, p.name, r1(p.x), r1(p.y), r1(p.z), Math.round(p.yaw * 100) / 100, Math.round(p.pitch * 100) / 100,
-    p.dead ? 1 : 0, room.mode === 'pk' ? p.cp : p.kills, room.mode === 'dm' ? p.deaths : room.mode === 'pk' ? p.falls : p.coinsRun, p.color, p.inv > 0 ? 1 : 0, p.tone]);
+    p.dead ? 1 : 0, room.mode === 'pk' ? p.cp : p.kills, room.mode === 'dm' ? p.deaths : room.mode === 'pk' ? p.falls : p.coinsRun, p.color, p.inv > 0 ? 1 : 0, p.tone, p.skin | 0]);
   const s = JSON.stringify({ t: 's', p: list, m: [], ph: room.phase, ib: room.info, boss: null, tl: Math.max(0, Math.round(room.timeLeft * 10) / 10) });
   for (const p of room.players.values()) if (p.ws.readyState === 1) p.ws.send(s);
 }
@@ -292,7 +294,7 @@ wss.on('connection', (ws) => {
       if (!r) return;
       if (r.players.size >= MAX_PER_ROOM) { ws.send(JSON.stringify({ t: 'full' })); return; }
       const name = String(m.name || 'Player').replace(/[<>&"'`]/g, '').trim().slice(0, 14) || 'Player';
-      me = { id: nextId++, ws, name, color: validColor(m.color) || PALETTE[Math.floor(Math.random() * PALETTE.length)], tone: clamp(Math.floor(+m.tone) || 0, 0, 4),
+      me = { id: nextId++, ws, name, color: validColor(m.color) || PALETTE[Math.floor(Math.random() * PALETTE.length)], tone: clamp(Math.floor(+m.tone) || 0, 0, 4), skin: clamp(Math.floor(+m.skin) || 0, 0, 10),
         weapon: WEAPONS[m.weapon] ? m.weapon : 'rifle', room: null, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: 100, dead: false, deadT: 0, inv: 0, hurtT: 99,
         kills: 0, deaths: 0, heads: 0, streak: 0, best: 0, coinsRun: 0, lastShot: 0, lastSt: Date.now(), cp: 0, pkStart: 0, finished: false, falls: 0 };
       enterRoom(me, r);
@@ -308,7 +310,8 @@ wss.on('connection', (ws) => {
       if (!pk) { me.y = clamp(m.y, 0, 3); return; }
       me.y = clamp(m.y, pk.kill - 5, pk.bounds[5] + 12);
       if (me.finished) return;
-      if (!me.pkStart && Math.hypot(me.x - pk.start[0], me.z - pk.start[2]) > 1.8) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
+      // the clock starts as soon as you step off the green start platform (7 x 7)
+      if (!me.pkStart && (Math.abs(me.x - pk.start[0]) > 3.5 || Math.abs(me.z - pk.start[2]) > 3.5)) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
       const nextCp = pk.cps[me.cp];
       if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < 2.6 && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
       else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < 3.2 && Math.abs(me.y - pk.fin[1]) < 2.2) {
@@ -331,6 +334,7 @@ wss.on('connection', (ws) => {
     } else if (m.t === 'color' && me) {
       const c = validColor(m.color); if (c) me.color = c;
       if (m.tone != null) me.tone = clamp(Math.floor(+m.tone) || 0, 0, 4);
+      if (m.skin != null) me.skin = clamp(Math.floor(+m.skin) || 0, 0, 10);
     }
   });
   ws.on('close', () => { if (me && me.room) me.room.players.delete(me.id); });

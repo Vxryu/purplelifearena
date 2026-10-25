@@ -145,6 +145,12 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 @keyframes coinUp { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -46px); } }
 #top .coins { display: none; color: #ffd166; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.04em; }
 @media (max-width: 560px) { .modes { grid-template-columns: 1fr; } }
+.skins { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.skin { display: flex; align-items: center; gap: 8px; text-align: left; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,0.22); color: var(--ink); cursor: pointer; font: 600 0.74rem var(--body); line-height: 1.25; }
+.skin i { width: 30px; height: 14px; border-radius: 4px; flex: none; border: 1px solid rgba(255,255,255,0.25); }
+.skin small { display: block; color: var(--muted); font-weight: 500; font-size: 0.66rem; }
+.skin[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.skin:disabled { opacity: 0.45; cursor: not-allowed; }
 #pkpick { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--line); }
 #pkpick[hidden] { display: none; }
 #pkpick button { width: 34px; padding: 6px 0; flex: none; }
@@ -195,6 +201,11 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
         <div class="swl">Shirt color</div><div class="swatches" id="swatches" role="group" aria-label="Shirt color"></div>
         <div class="swl">Skin tone</div><div class="swatches tones" id="tones" role="group" aria-label="Skin tone"></div>
       </details>
+      <details><summary>Weapon skins</summary>
+        <div class="wallet">Total kills: <span id="totk">0</span></div>
+        <div class="skins" id="skins"></div>
+        <div class="note">Skins unlock with your total kills over all your matches, not just this session. Other players see your skin.</div>
+      </details>
       <details hidden><summary>Weapons</summary>
         <div class="wallet">Coins: <span id="walletv">0</span></div>
         <div class="shop" id="shop"></div>
@@ -206,7 +217,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       </details>
       <details><summary>Controls</summary>
         <ul class="keys" id="keys">
-          <li><b>Move</b><span>WASD (ZQSD on a French keyboard), Shift to run, Space to jump</span></li>
+          <li><b>Move</b><span>WASD (ZQSD on a French keyboard), Shift or Left Ctrl to run, Space to jump. If your browser closes the tab with Ctrl+W, press W first then Ctrl, or play in fullscreen (F).</span></li>
           <li><b>Shoot</b><span>Left click, hold for full auto. R reloads. Headshots deal double.</span></li>
           <li><b>Dash</b><span>E, a quick burst (not in Parkour). Low crates and barriers can be jumped on.</span></li>
           <li><b>Parkour</b><span>Hold Space to bunny hop. In the air, turn the mouse and hold A or D to gain speed. R restarts the level, N and B switch to the next or previous level.</span></li>
@@ -264,14 +275,32 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   const MODES = { dm: 'Deathmatch', camp: 'Campaign', endless: 'Endless', pk: 'Parkour' };
   const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space'];
   const PK_N = PK_NAMES.length;
+  // weapon skins, unlocked with your total kills over all matches (saved in this browser)
+  const SKINS = [
+    { name: 'Standard', kills: 0, body: '#2b2d33', accent: '#555962', pat: 'none' },
+    { name: 'Sandstorm', kills: 25, body: '#c9a066', accent: '#8a6a3a', pat: 'dots' },
+    { name: 'Frostbite', kills: 60, body: '#bfe3f5', accent: '#5a8fb0', pat: 'none' },
+    { name: 'Woodland', kills: 120, body: '#4c5a35', accent: '#2a3320', pat: 'camo' },
+    { name: 'Crimson', kills: 200, body: '#9c1c2c', accent: '#4a0a12', pat: 'stripes' },
+    { name: 'Cobalt', kills: 300, body: '#1f4fb0', accent: '#0d2a66', pat: 'none' },
+    { name: 'Gold Rush', kills: 450, body: '#d9a720', accent: '#8a6a10', pat: 'none', glow: '#3a2a00' },
+    { name: 'Emerald', kills: 650, body: '#1f9a5a', accent: '#0b4a2a', pat: 'grid', glow: '#04301a' },
+    { name: 'Neon Pulse', kills: 900, body: '#b46bff', accent: '#ff4dd2', pat: 'stripes', glow: '#3a1070' },
+    { name: 'Void', kills: 1200, body: '#120a22', accent: '#7a3cff', pat: 'grid', glow: '#1a0a40' },
+    { name: 'Legend', kills: 1600, body: '#ffffff', accent: '#ffd166', pat: 'rainbow', glow: '#222222' }
+  ];
+  let totalKills = 0;
+  try { totalKills = +localStorage.getItem('parena_total_kills') || 0; } catch (e) {}
+  const skinOk = (i) => !!SKINS[i] && totalKills >= SKINS[i].kills;
   let pkUnlocked = PK_N, pkPB = {};   // every level is open from the start
   try { pkPB = JSON.parse(localStorage.getItem('parena_pk_pb2') || '{}'); } catch (e) {}
   function savePk() { try { localStorage.setItem('parena_pk_pb2', JSON.stringify(pkPB)); } catch (e) {} }
 
   // ---------- settings and wallet (saved in this browser) ----------
-  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'camp', pkLevel: 1 };
+  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0 };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem('parena_online3') || '{}')); } catch (e) {}
   if (cfg.mode !== 'dm' && cfg.mode !== 'pk') cfg.mode = 'dm';
+  if (!skinOk(cfg.skin)) cfg.skin = 0;
   function saveCfg() { try { localStorage.setItem('parena_online3', JSON.stringify(cfg)); } catch (e) {} }
   const wallet = { coins: 0, owned: ['rifle'], equipped: 'rifle' };
   try { Object.assign(wallet, JSON.parse(localStorage.getItem('parena_wallet') || '{}')); } catch (e) {}
@@ -301,7 +330,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   }
   function setLook(color, tone) {
     cfg.color = color.toLowerCase(); cfg.tone = tone; saveCfg(); buildSwatches(); sleeve.color.set(cfg.color); handMat.color.set(TONES[cfg.tone]);
-    wsSend({ t: 'color', color: cfg.color, tone: cfg.tone });
+    wsSend({ t: 'color', color: cfg.color, tone: cfg.tone, skin: cfg.skin });
   }
   function renderShop() {
     $('walletv').textContent = wallet.coins;
@@ -426,6 +455,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       case 'log': return L('bark', () => gtex('bark', T.bark, 1, 1));
       case 'pipe': return L('pipe', () => gtex('metal', T.metal, 1, 4));
       case 'crystal': return lam('crystal', () => new THREE.MeshBasicMaterial({ color: 0xa77bff }));
+      case 'block': return lam('block' + col + Math.round(big / 3), () => new THREE.MeshLambertMaterial({ color: col, map: gtex('flat', () => T.flat('#9a9a9a'), Math.max(1, big / 3), Math.max(1, h / 3)) }));
       default: { // parkour platforms
         const glow = th.glow ? { emissive: new THREE.Color(th.glow) } : {};
         if (kind === 'start') return lam('pkstart' + col + th.glow, () => new THREE.MeshLambertMaterial({ color: col, map: gtex('flat', () => T.flat('#9a9a9a'), 3, 3), emissive: new THREE.Color(0x1d8a4f) }));
@@ -470,8 +500,9 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     scene.background = new THREE.Color(th.fog[0]); scene.fog = new THREE.Fog(th.fog[0], th.fog[1] * fm, th.fog[2] * fm);
     dome = skyDome(th); world.add(dome);
     world.add(new THREE.HemisphereLight(th.hemi[0], th.hemi[1], th.hemi[2]));
-    sunL = new THREE.DirectionalLight(th.sun[0], th.sun[1]); sunL.castShadow = true; sunL.shadow.mapSize.set(2048, 2048);
-    const sc = sunL.shadow.camera; sc.left = -38; sc.right = 38; sc.top = 38; sc.bottom = -38; sc.near = 5; sc.far = 140; sunL.shadow.bias = -0.0006;
+    sunL = new THREE.DirectionalLight(th.sun[0], th.sun[1]); sunL.castShadow = true;
+    const shSize = Math.min(4096, renderer.capabilities.maxTextureSize || 2048); sunL.shadow.mapSize.set(shSize, shSize);
+    const sc = sunL.shadow.camera; sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 5; sc.far = 140; sunL.shadow.bias = -0.0004; sunL.shadow.normalBias = 0.03; sunL.shadow.radius = 2;
     world.add(sunL, sunL.target);
     if (th.lantern) { lantern = new THREE.PointLight(0xffd9a0, 1.15, 26, 1.4); lantern.position.set(0, 0.2, 0.3); camera.add(lantern); }
     // floor
@@ -503,7 +534,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       const grid = new THREE.GridHelper(1200, 240, 0xb46bff, 0x4a1c8a); grid.position.y = pk.kill + 1.1; grid.userData.follow = 2; world.add(grid);
     }
     // boxes
-    const trees = [], crystals = [];
+    const trees = [], crystals = [], propPlats = [];
     for (const e of msg.b) {
       const kind = e[0], x = e[1], z = e[2], w = e[3], d = e[4], h = e[5], col = e[6], y0 = e[7] || 0;
       boxes.push({ x, z, w, d, h, y: y0 });
@@ -520,7 +551,14 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
         const beam = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, d) / 2 - 0.2, Math.min(w, d) / 2 - 0.2, 14, 16, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
         beam.position.set(x, y0 + h + 7, z); world.add(beam); glowPulse.push(beam);
       }
+      if (pk && (kind === 'plat' || kind === 'start' || kind === 'finish')) {
+        addUnderbody(x, z, w, d, y0, col);
+        propPlats.push([x, z, w, d, y0 + h]);
+        const el = EDGE_GLOW[mapInfo.th];
+        if (el) mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: el })));
+      }
     }
+    if (pk) buildProps(propPlats);
     if (trees.length) buildTrees(trees);
     if (th.crystals) crystals.slice(0, 5).forEach((c) => { const l = new THREE.PointLight(0x9b6bff, 1.4, 15, 1.6); l.position.set(c[0], c[2] * 0.8, c[1]); world.add(l); });
     if (pk) buildDecor(th, pk, msg);
@@ -531,6 +569,49 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       drawBoard(boardStart, 'LEVEL ' + pk.lv, lbCache[pk.lv] || []); drawBoard(boardFin, 'FINISH - LEVEL ' + pk.lv, lbCache[pk.lv] || []);
     }
     camera.far = pk ? 500 : 300; camera.updateProjectionMatrix();
+  }
+  const EDGE_GLOW = { neon: 0xb46bff, space: 0x8a8aff, abyss: 0x40ffd0, volcano: 0xff7a2a };
+  // what hangs under a floating platform, per biome
+  function addUnderbody(x, z, w, d, y0, col) {
+    const id = mapInfo.th;
+    if (id === 'neon' || id === 'space') return;
+    const mat = lam('ub' + id + col, () => new THREE.MeshLambertMaterial({ color: new THREE.Color(col).multiplyScalar(0.6), map: gtex('rockflat', () => T.flat('#808080'), 2, 2) }));
+    if (id === 'water') {
+      const bark = lam('bark', () => new THREE.MeshLambertMaterial({ map: gtex('bark', T.bark, 1, 1) }));
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 7, 6), bark);
+        p.position.set(x + sx * (w / 2 - 0.45), y0 - 3.3, z + sz * (d / 2 - 0.45)); p.castShadow = true; world.add(p);
+      }
+      return;
+    }
+    let m;
+    if (id === 'factory') { m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.8, w * 0.35), 6, Math.max(0.8, d * 0.35)), lam('pipe', () => new THREE.MeshLambertMaterial({ map: gtex('metal', T.metal, 1, 4) }))); m.position.set(x, y0 - 3, z); }
+    else if (id === 'volcano') { m = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(w, d) * 0.4, Math.max(w, d) * 0.22, 5, 6), mat); m.position.set(x, y0 - 2.5, z); }
+    else { m = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.45, 5, 7), mat); m.rotation.x = Math.PI; m.position.set(x, y0 - 2.5, z); }
+    m.castShadow = true; world.add(m);
+  }
+  // small non-solid details on top of the platforms
+  function buildProps(plats) {
+    const id = mapInfo.th, mk = (c, e) => new THREE.MeshLambertMaterial(Object.assign({ color: c }, e ? { emissive: new THREE.Color(e) } : {}));
+    const D = {
+      desert:  [new THREE.DodecahedronGeometry(0.16, 0), mk(0xa07a48), 0.5, 0.16],
+      water:   [new THREE.CylinderGeometry(0.16, 0.18, 0.4, 8), mk(0x6a4a2a), 0.25, 0.2],
+      forest:  [new THREE.ConeGeometry(0.1, 0.38, 4), mk(0x2f6a2c), 1.1, 0.19],
+      ice:     [new THREE.ConeGeometry(0.1, 0.5, 5), mk(0xdff4ff, 0x203848), 0.5, 0.25],
+      cave:    [new THREE.ConeGeometry(0.1, 0.45, 5), mk(0x9b6bff, 0x4a2a90), 0.3, 0.22],
+      factory: [new THREE.BoxGeometry(0.3, 0.12, 0.3), mk(0x3a3d44), 0.45, 0.06],
+      volcano: [new THREE.DodecahedronGeometry(0.15, 0), mk(0x1a1210, 0x8a2a08), 0.55, 0.15],
+      abyss:   [new THREE.ConeGeometry(0.12, 0.5, 5), mk(0x2ab59a, 0x0a5a48), 0.4, 0.25]
+    }[id];
+    if (!D) return;
+    const spots = []; let a = 99; const rnd = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
+    for (const p of plats) {
+      const n = Math.max(2, Math.min(16, Math.round(p[2] * p[3] * D[2])));
+      for (let i = 0; i < n; i++) spots.push([p[0] + (rnd() - 0.5) * (p[2] - 0.6), p[4], p[1] + (rnd() - 0.5) * (p[3] - 0.6)]);
+    }
+    const im = new THREE.InstancedMesh(D[0], D[1], spots.length), m = new THREE.Matrix4(), q = new THREE.Quaternion(), pp = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    spots.forEach((sp, i) => { const k = 0.6 + rnd() * 0.9; q.setFromAxisAngle(up, rnd() * 6); m.compose(pp.set(sp[0], sp[1] + D[3] * k, sp[2]), q, sc.set(k, k, k)); im.setMatrixAt(i, m); });
+    im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; world.add(im);
   }
   function buildTrees(list) {
     const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.34, 0.5, 9, 7), lam('bark', () => new THREE.MeshLambertMaterial({ map: gtex('bark', T.bark, 1, 1) })), list.length);
@@ -640,7 +721,46 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   const flash = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffe2a0 })); flash.position.set(0, 0.03, -0.78); flash.visible = false; gun.add(flash);
   const muzzleLight = new THREE.PointLight(0xffc27a, 0, 9); muzzleLight.position.set(0, 0.05, -0.9); gun.add(muzzleLight);
   gun.position.set(0.22, -0.24, -0.5); camera.add(gun);
-  function setWeaponLook(id) { const w = WEAPONS[id]; gunMat.color.setHex(w.tint); gun.scale.set(id === 'shotgun' ? 1.25 : 1, id === 'shotgun' ? 1.25 : 1, w.len); }
+  function setWeaponLook(id) { const w = WEAPONS[id]; gun.scale.set(id === 'shotgun' ? 1.25 : 1, id === 'shotgun' ? 1.25 : 1, w.len); }
+
+  // ---------- weapon skins ----------
+  const skinTexCache = {};
+  function skinTex(sk) {
+    if (sk.pat === 'none') return null;
+    if (skinTexCache[sk.name]) return skinTexCache[sk.name];
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    x.fillStyle = sk.body; x.fillRect(0, 0, 64, 64); x.fillStyle = sk.accent; x.strokeStyle = sk.accent;
+    if (sk.pat === 'camo') { for (let i = 0; i < 14; i++) { x.globalAlpha = 0.75; x.beginPath(); x.ellipse(Math.random() * 64, Math.random() * 64, 6 + Math.random() * 9, 4 + Math.random() * 6, Math.random() * 3, 0, 7); x.fill(); } }
+    else if (sk.pat === 'stripes') { x.lineWidth = 7; for (let i = -64; i < 128; i += 18) { x.beginPath(); x.moveTo(i, 64); x.lineTo(i + 64, 0); x.stroke(); } }
+    else if (sk.pat === 'dots') { for (let i = 0; i < 40; i++) { x.beginPath(); x.arc(Math.random() * 64, Math.random() * 64, 1.5 + Math.random() * 2.5, 0, 7); x.fill(); } }
+    else if (sk.pat === 'grid') { x.lineWidth = 2; for (let i = 0; i <= 64; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 64); x.moveTo(0, i); x.lineTo(64, i); x.stroke(); } }
+    else if (sk.pat === 'rainbow') { const g = x.createLinearGradient(0, 0, 64, 64); ['#ff4d4d', '#ffd166', '#7dffb0', '#4ad1c2', '#7aa8ff', '#b46bff'].forEach((col, i) => g.addColorStop(i / 5, col)); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return (skinTexCache[sk.name] = t);
+  }
+  function applySkin(i) {
+    const sk = SKINS[i] || SKINS[0], t = skinTex(sk);
+    gunMat.map = t; gunMat.color.set(t ? '#ffffff' : sk.body); gunMat.emissive.set(sk.glow || '#000000'); gunMat.needsUpdate = true;
+    steel.color.set(sk.accent);
+  }
+  function applyRemoteSkin(o, i) {
+    const sk = SKINS[i] || SKINS[0]; o.skinIdx = i;
+    if (o.gunM) { o.gunM.color.set(sk.body); o.gunM.emissive.set(sk.glow || '#000000'); }
+  }
+  function renderSkins() {
+    $('totk').textContent = totalKills;
+    const box = $('skins'); box.innerHTML = '';
+    SKINS.forEach((sk, i) => {
+      const ok = skinOk(i), b = document.createElement('button'); b.type = 'button'; b.className = 'skin'; b.disabled = !ok; b.setAttribute('aria-pressed', String(cfg.skin === i));
+      b.innerHTML = `<i style="background:linear-gradient(90deg, ${sk.body} 60%, ${sk.accent} 60%)"></i><span>${sk.name}<small>${ok ? (cfg.skin === i ? 'Equipped' : 'Unlocked') : (sk.kills - totalKills) + ' kills to go'}</small></span>`;
+      b.addEventListener('click', () => { cfg.skin = i; saveCfg(); applySkin(i); renderSkins(); wsSend({ t: 'color', color: cfg.color, tone: cfg.tone, skin: cfg.skin }); });
+      box.appendChild(b);
+    });
+  }
+  function addKill() {
+    totalKills++; try { localStorage.setItem('parena_total_kills', totalKills); } catch (e) {}
+    const hit = SKINS.find((sk) => sk.kills === totalKills);
+    if (hit) { banner('Skin unlocked: ' + hit.name + '!', 3200); [660, 880, 1100].forEach((f, i) => setTimeout(() => beep(f, 0.14, 'triangle', 0.06), i * 90)); }
+  }
 
   // ---------- audio ----------
   let ac = null;
@@ -691,14 +811,14 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     const armL = new THREE.Group(), armR = new THREE.Group(); armL.position.set(-0.36, 1.34, 0); armR.position.set(0.36, 1.34, 0); g.add(armL, armR);
     [armL, armR].forEach((a) => { mk(G.armUp, shirt, 0, -0.15, 0, a, true); mk(G.armLow, skin, 0, -0.42, 0, a); mk(G.hand, skin, 0, -0.58, 0, a); });
     armR.rotation.x = -1.2; armL.rotation.set(-1.0, 0, 0.35);
-    mk(G.gun, dark, 0.2, 1.18, -0.5, g);
+    const gunM = mat('#1b1b20'); mk(G.gun, gunM, 0.2, 1.18, -0.5, g);
     if (o.helmet) { const hm = mat(o.helmet); mk(G.helmet, hm, 0, 1.62, 0, g); }
     if (o.armor) { const am = mat(o.armor); mk(G.plate, am, -0.4, 1.46, 0, g); mk(G.plate, am, 0.4, 1.46, 0, g); }
     if (o.crown) { const cm = mat('#c9a227'); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; mk(G.spike, cm, Math.cos(a) * 0.2, 1.95, Math.sin(a) * 0.2, g); } }
     g.scale.setScalar(o.scale || 1);
     if (o.name) g.add(nameSprite(o.name, 2.3));
     scene.add(g);
-    return { g, legL, legR, armL, armR, mats, shirt, skin, head };
+    return { g, legL, legR, armL, armR, mats, shirt, skin, head, gunM };
   }
   function makeRemote(id, name, color, tone) {
     const h = makeHumanoid({ shirt: color, skin: TONES[tone] || TONES[1], hair: tone >= 3 ? '#16110d' : '#3a2a1f', name });
@@ -753,7 +873,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     if (!/^https?:$/.test(location.protocol)) { setMsg('Open the game through the server address (not as a file) to play online.'); $('play').disabled = false; return; }
     setMsg('Connecting...'); $('play').disabled = true;
     const name = ($('name').value.trim() || 'Player').slice(0, 14); cfg.name = name; saveCfg();
-    const join = () => wsSend({ t: 'join', mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, weapon: myWeapon() });
+    const join = () => wsSend({ t: 'join', mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
     if (ws && ws.readyState === 1) { join(); return; }
     let sock; try { sock = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); } catch (e) { setMsg('Could not reach the server.'); $('play').disabled = false; return; }
     ws = sock; let opened = false;
@@ -778,7 +898,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       sendTimer = setInterval(() => { if (state === 'play' && !P.dead) wsSend({ t: 'st', x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch }); }, 50);
     } else if (m.t === 'map') {
       buildWorld(m); pkCp = 0; pkCpN = m.pk ? m.pk.cps.length : 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud();
-      if (runMode === 'pk' && m.name) banner(m.name, 2600);
+      if ((runMode === 'pk' || runMode === 'dm') && m.name) banner(m.name, 2600);
       if (runMode === 'pk') setHud(state === 'play');
     } else if (m.t === 'tp') {
       P.x = m.x; P.y = m.y; P.z = m.z; P.vx = P.vz = P.vy = 0;
@@ -809,6 +929,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
         if (r[0] === myId) { $('kills').textContent = r[8]; continue; }
         const o = remotes.get(r[0]) || makeRemote(r[0], r[1], r[10], r[12]);
         if (o.color !== r[10]) { o.color = r[10]; o.shirt.color.set(r[10]); }
+        if (o.skinIdx !== (r[13] | 0)) applyRemoteSkin(o, r[13] | 0);
         if (o.tone !== r[12]) { o.tone = r[12]; o.skin.color.set(TONES[r[12]] || TONES[1]); }
         o.tx = r[2]; o.ty = r[3]; o.tz = r[4]; o.tyaw = r[5];
         if (!o.init) { o.x = o.tx; o.y = o.ty; o.z = o.tz; o.yaw = o.tyaw; o.init = true; }
@@ -839,7 +960,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       const o = mobs.get(m.id); if (o) removeMob(o);
     } else if (m.t === 'hm') {
       hitMarker(!!m.h); beep(m.h ? 900 : 620, 0.07, 'triangle', 0.07);
-      if (m.k) { streak++; beep(220, 0.18, 'sawtooth', 0.06, 0.4); streakHud(); }
+      if (m.k) { streak++; beep(220, 0.18, 'sawtooth', 0.06, 0.4); streakHud(); if (runMode === 'dm') { addKill(); } }
       if (m.c) { addCoins(m.c); coinPop('+' + m.c); }
     } else if (m.t === 'cn') {
       addCoins(m.n); coinPop('+' + m.n + ' coins'); beep(1200, 0.12, 'triangle', 0.05);
@@ -933,7 +1054,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     const side = alive ? (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) : 0;
     let wx = -Math.sin(P.yaw) * fwd + Math.cos(P.yaw) * side, wz = -Math.cos(P.yaw) * fwd - Math.sin(P.yaw) * side;
     const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
-    const run = pk ? 9 : (keys.ShiftLeft || keys.ShiftRight) ? 9 : 6.5, g = groundAt(P.x, P.z, P.y);
+    const run = pk ? 9 : (keys.ShiftLeft || keys.ShiftRight || keys.ControlLeft) ? 9 : 6.5, g = groundAt(P.x, P.z, P.y);
     const onGround = P.y <= g + 0.001 && P.vy <= 0;
     jumpBuf = Math.max(0, jumpBuf - dt);
     let jumped = false;
@@ -1000,7 +1121,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     const k = Math.min(1, dt * 15), tnow = performance.now() / 1000;
     if (world) {
       if (dome) dome.position.copy(camera.position);
-      if (sunL) { sunL.position.set(P.x + 26, P.y + 44, P.z + 18); sunL.target.position.set(P.x, P.y, P.z); }
+      if (sunL) { const sx = Math.round(P.x * 2) / 2, sy = Math.round(P.y * 2) / 2, sz = Math.round(P.z * 2) / 2; sunL.position.set(sx + 26, sy + 44, sz + 18); sunL.target.position.set(sx, sy, sz); }
       world.children.forEach((o) => { if (o.userData.followLight) { o.position.x = camera.position.x; o.position.z = camera.position.z; } if (o.userData.follow === 1) { o.position.x = Math.round(camera.position.x / 8) * 8; o.position.z = Math.round(camera.position.z / 8) * 8; } else if (o.userData.follow === 2) { o.position.x = Math.round(camera.position.x / 5) * 5; o.position.z = Math.round(camera.position.z / 5) * 5; } });
       glowPulse.forEach((b, i) => { if (b.lava) b.material.color.setHSL(0.04 + 0.01 * Math.sin(tnow * 1.5), 1, 0.5 + 0.06 * Math.sin(tnow * 2)); else b.material.opacity = 0.12 + 0.07 * Math.sin(tnow * 2 + i); });
       if (boardFin) { boardFin.mesh.position.y = boardFin.baseY + Math.sin(tnow * 1.3) * 0.35; boardFin.mesh.rotation.y = Math.atan2(camera.position.x - boardFin.mesh.position.x, camera.position.z - boardFin.mesh.position.z); }
@@ -1047,7 +1168,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
       $('play').textContent = pause ? 'Resume' : 'Play'; $('play').disabled = false;
     }
     $('best').textContent = bestKills && menu ? `Best match: ${bestKills} kills` : '';
-    if (menu) { renderShop(); renderPick(); }
+    if (menu) { renderShop(); renderPick(); renderSkins(); }
   }
   function lock() {
     try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
@@ -1066,10 +1187,18 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   $('leave').addEventListener('click', () => { if (ws) ws.close(); else { state = 'menu'; showCard('menu'); } });
   $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(); });
 
+  function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().then(() => { if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ControlLeft']).catch(() => {}); }).catch(() => {});
+    } catch (e) {}
+  }
   // ---------- input ----------
   addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
+    if (e.ctrlKey && state === 'play') e.preventDefault();
     keys[e.code] = true;
+    if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
     if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
@@ -1110,7 +1239,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     for (let i = 0; i < 10; i++) { const x = (r() * 2 - 1) * 40, z = (r() * 2 - 1) * 40; if (Math.hypot(x, z) < 6) continue; b.push(['rock', x, z, 2, 1.5, 0.9, 0, 0]); }
     buildWorld({ t: 'map', id: 'menu', name: '', th: 'forest', half: 60, b, pk: null });
   })();
-  buildSwatches(); setWeaponLook(wallet.equipped); $('coinhud').textContent = wallet.coins;
+  buildSwatches(); setWeaponLook(wallet.equipped); applySkin(cfg.skin); $('coinhud').textContent = wallet.coins;
   showCard('menu');
   requestAnimationFrame(frame);
 })();

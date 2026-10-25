@@ -32,6 +32,82 @@ function arena() {
   return { id: 'arena', name: 'Arena', th: 'arena', half: 30, boxes, spawns: [[0, 24], [0, -24], [24, 0], [-24, 0], [-27, -27], [27, 27], [-27, 27], [27, -27]] };
 }
 
+// ---------- more deathmatch maps ----------
+function free(boxes, x, z, w, d, pad) { const t = { x, z, w, d }; return !boxes.some((b) => overlaps(t, b, pad)); }
+function scatter(boxes, r, n, make, avoid, pad, half) {
+  let placed = 0;
+  for (let tries = 0; tries < n * 14 && placed < n; tries++) {
+    const x = (r() * 2 - 1) * (half - 4), z = (r() * 2 - 1) * (half - 4), b = make(x, z);
+    if (avoid(x, z) || !free(boxes, b.x, b.z, b.w, b.d, pad)) continue;
+    boxes.push(b); placed++;
+  }
+}
+function ringSpawns(half) {
+  const a = half * 0.82, out = [];
+  for (const [x, z] of [[0, 1], [0, -1], [1, 0], [-1, 0], [0.9, 0.9], [-0.9, 0.9], [0.9, -0.9], [-0.9, -0.9]]) out.push([x * a, z * a]);
+  return out;
+}
+// Dust Bowl: sandstone temple ruins in the desert
+function dust() {
+  const r = rng(501), half = 30, boxes = [], S = 0xc9a066, add = (...a) => boxes.push(B(...a));
+  edges(half, boxes, 'edge');
+  add('block', -7.5, -8, 9, 0.9, 3.6, S); add('block', 7.5, -8, 9, 0.9, 3.6, S); add('block', -7.5, 8, 9, 0.9, 3.6, S); add('block', 7.5, 8, 9, 0.9, 3.6, S);
+  add('block', -12, -3.5, 0.9, 8, 3.6, S); add('block', -12, 3.5, 0.9, 8, 3.6, S); add('block', 12, -3.5, 0.9, 8, 3.6, S); add('block', 12, 3.5, 0.9, 8, 3.6, S);
+  for (const [x, z] of [[-4.5, -4.5], [4.5, -4.5], [-4.5, 4.5], [4.5, 4.5]]) add('pillar', x, z, 1.3, 1.3, 4.6);
+  add('stone', 0, 0, 3.2, 3.2, 0.9); add('stone', 0, 0, 1.6, 1.6, 1.8);
+  const avoid = (x, z) => Math.abs(x) < 13.5 && Math.abs(z) < 9.5;
+  scatter(boxes, r, 9, (x, z) => { const s2 = 2 + r() * 2.2; return B('rock', x, z, s2, s2 * (0.8 + r() * 0.4), 0.9 + r() * 0.25); }, avoid, 1.2, half);
+  scatter(boxes, r, 10, (x, z) => { const s2 = 1.3 + r() * 0.3; return B('crate', x, z, s2, s2, r() < 0.5 ? 1.0 : 2.0); }, avoid, 1.0, half);
+  scatter(boxes, r, 8, (x, z) => (r() < 0.5 ? B('block', x, z, 5 + r() * 2, 0.8, 1.1, S) : B('block', x, z, 0.8, 5 + r() * 2, 1.1, S)), avoid, 1.3, half);
+  scatter(boxes, r, 6, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
+  return { id: 'dust', name: 'Dust Bowl', th: 'desert', half, boxes, spawns: ringSpawns(half) };
+}
+// Frostbite: ice blocks and a snowed-in bunker
+function frost() {
+  const r = rng(733), half = 30, boxes = [], ICE = 0x9fd0ea, SNOW = 0xe9f1f7, add = (...a) => boxes.push(B(...a));
+  edges(half, boxes, 'edge');
+  add('block', -5.5, -6, 6, 0.8, 3.2, SNOW); add('block', 5.5, -6, 6, 0.8, 3.2, SNOW); add('block', -5.5, 6, 6, 0.8, 3.2, SNOW); add('block', 5.5, 6, 6, 0.8, 3.2, SNOW);
+  add('block', -8.4, 0, 0.8, 8, 3.2, SNOW); add('block', 8.4, 0, 0.8, 8, 3.2, SNOW);
+  add('block', 0, 0, 2.4, 2.4, 1.4, ICE);
+  const avoid = (x, z) => Math.abs(x) < 10 && Math.abs(z) < 8;
+  scatter(boxes, r, 14, (x, z) => { const s2 = 1.6 + r() * 2.6; return B('block', x, z, s2, s2 * (0.7 + r() * 0.6), 1.2 + r() * 2.4, ICE); }, avoid, 1.3, half);
+  scatter(boxes, r, 12, (x, z) => { const s2 = 2 + r() * 2.5; return B('block', x, z, s2, s2, 0.5 + r() * 0.6, SNOW); }, avoid, 1.0, half);
+  scatter(boxes, r, 8, (x, z) => B('crate', x, z, 1.4, 1.4, r() < 0.5 ? 1.0 : 2.0), avoid, 1.0, half);
+  scatter(boxes, r, 5, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
+  return { id: 'frost', name: 'Frostbite', th: 'ice', half, boxes, spawns: ringSpawns(half) };
+}
+// Night Woods: dark forest clearing with a cabin
+function woods() {
+  const r = rng(917), half = 34, boxes = [], W = 0x5a3f2a, add = (...a) => boxes.push(B(...a));
+  edges(half, boxes, 'edge');
+  add('block', -3.5, -5, 6, 0.6, 3, W); add('block', 3.5, -5, 6, 0.6, 3, W); add('block', -3.5, 5, 6, 0.6, 3, W); add('block', 3.5, 5, 6, 0.6, 3, W);
+  add('block', -6.5, 0, 0.6, 10.6, 3, W); add('block', 6.5, -2.5, 0.6, 5, 3, W); add('block', 6.5, 3.8, 0.6, 2.6, 3, W);
+  add('crate', 0, 0, 1.5, 1.5, 1.0);
+  const avoid = (x, z) => Math.abs(x) < 9 && Math.abs(z) < 7.5;
+  scatter(boxes, r, 70, (x, z) => B('tree', x, z, 0.9, 0.9, 9), avoid, 2.8, half);
+  scatter(boxes, r, 12, (x, z) => { const s2 = 1.4 + r() * 1.6; return B('rock', x, z, s2, s2 * (0.7 + r() * 0.5), 0.6 + r() * 0.55); }, avoid, 1.0, half);
+  scatter(boxes, r, 12, (x, z) => (r() < 0.5 ? B('log', x, z, 4 + r(), 0.8, 0.8) : B('log', x, z, 0.8, 4 + r(), 0.8)), avoid, 1.0, half);
+  scatter(boxes, r, 5, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
+  return { id: 'woods', name: 'Night Woods', th: 'forest', half, boxes, spawns: ringSpawns(half) };
+}
+// Reactor: industrial core with catwalks
+function reactor() {
+  const r = rng(1201), half = 30, boxes = [], add = (...a) => boxes.push(B(...a));
+  edges(half, boxes, 'wall');
+  add('pipe', 0, 0, 5, 5, 8);
+  for (const [x, z] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) add('pipe', x, z, 1.2, 1.2, 8);
+  add('cont', -15, -4, 2.5, 6.2, 2.6, 2973608); add('cont', 15, 4, 2.5, 6.2, 2.6, 11022893); add('cont', 4, -15, 6.2, 2.5, 2.6, 4160847); add('cont', -4, 15, 6.2, 2.5, 2.6, 13071403);
+  // catwalks (top at 3.0) reached by crate stairs
+  add('plat', 0, -23, 20, 3, 0.3, 0x5a5f68, 2.7); add('crate', -11.2, -23, 1.6, 1.6, 2.0); add('crate', -13.2, -23, 1.6, 1.6, 1.0);
+  add('plat', 0, 23, 20, 3, 0.3, 0x5a5f68, 2.7); add('crate', 11.2, 23, 1.6, 1.6, 2.0); add('crate', 13.2, 23, 1.6, 1.6, 1.0);
+  const avoid = (x, z) => Math.hypot(x, z) < 7 || (Math.abs(z) > 20 && Math.abs(x) < 16);
+  scatter(boxes, r, 14, (x, z) => { const s2 = 1.3 + r() * 0.4; return B('crate', x, z, s2, s2, r() < 0.5 ? 1.0 : 2.0); }, avoid, 1.0, half);
+  scatter(boxes, r, 8, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
+  scatter(boxes, r, 8, (x, z) => B('barrier', x, z, 3, 0.6, 1.0), avoid, 1.2, half);
+  return { id: 'reactor', name: 'Reactor', th: 'factory', half, boxes, spawns: ringSpawns(half) };
+}
+const DM_MAPS = ['arena', 'dust', 'frost', 'woods', 'reactor'];
+
 // ---------- parkour (10 levels, one biome each) ----------
 const PK_INFO = [
   { th: 'desert', name: 'Scorched Dunes', col: 0xc9a066 },
@@ -113,6 +189,10 @@ function getMap(id) {
   if (cache.has(id)) return cache.get(id);
   let m = null, k;
   if (id === 'arena') m = arena();
+  else if (id === 'dust') m = dust();
+  else if (id === 'frost') m = frost();
+  else if (id === 'woods') m = woods();
+  else if (id === 'reactor') m = reactor();
   else if ((k = /^pk(\d+)$/.exec(id)) && +k[1] >= 1 && +k[1] <= PK_LEVELS) m = parkour(+k[1]);
   if (!m) return null;
   // make sure every spawn point is out of every box
@@ -128,4 +208,4 @@ function getMap(id) {
   return m;
 }
 function setSalt(L, v) { PK_SALT[L] = v; cache.delete('pk' + L); }
-module.exports = { setSalt, getMap, PK_LEVELS, PK_INFO, airtime, gapDist };
+module.exports = { setSalt, getMap, DM_MAPS, PK_LEVELS, PK_INFO, airtime, gapDist };
