@@ -1,3 +1,4 @@
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Purple Arena Online</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Unbounded:wght@600;800&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -174,6 +175,62 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 #pkdone b { display: block; font-family: var(--display); font-size: 1.6rem; color: #7dffb0; }
 #pkhint { left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 0.72rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
 
+
+/* ---------- touch controls (phones and tablets only) ---------- */
+#touch { position: fixed; inset: 0; pointer-events: none; z-index: 5; touch-action: none; }
+#touch[hidden] { display: none; }
+#touch .tb { position: absolute; pointer-events: auto; touch-action: none; display: grid; place-items: center; border-radius: 50%; border: 0.5vh solid rgba(255,255,255,0.55); background: rgba(30,16,56,0.55); color: #fff; font: 800 2.9vh var(--body); letter-spacing: 0.03em; text-align: center; line-height: 1.1; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; padding: 0; }
+#touch .tb small { display: block; font: 600 1.9vh var(--body); opacity: 0.8; }
+#touch .tb.on { background: rgba(255,255,255,0.35); transform: scale(0.94); }
+#touch .tp { position: absolute; pointer-events: auto; touch-action: none; padding: 1.3vh 2.4vh; border-radius: 4vh; background: rgba(30,16,56,0.6); border: 1px solid rgba(255,255,255,0.35); color: #fff; font: 700 3vh var(--body); -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+#touch .tp.on, #touch .tp.sel { background: rgba(180,107,255,0.6); border-color: #d9b8ff; }
+#tfire { right: 10vh; bottom: 9vh; width: 27vh; height: 27vh; background: rgba(255,77,122,0.45); border-color: #ff8aa6; font-size: 3.6vh; }
+#tjump { right: 6vh; bottom: 40vh; width: 18vh; height: 18vh; background: rgba(180,107,255,0.45); border-color: #d9b8ff; }
+#taim { right: 40vh; bottom: 26vh; width: 18vh; height: 18vh; }
+#treload { right: 41vh; bottom: 6vh; width: 14vh; height: 14vh; font-size: 2.5vh; }
+#tdash { right: 27vh; bottom: 38vh; width: 12vh; height: 12vh; font-size: 2.4vh; }
+#tdash.cd { opacity: 0.4; }
+#touch.pk #tjump { right: 10vh; bottom: 9vh; width: 31vh; height: 31vh; font-size: 3.8vh; }
+#tstick { position: absolute; left: 9vh; bottom: 8vh; width: 38vh; height: 38vh; border-radius: 50%; background: rgba(30,16,56,0.4); border: 0.5vh solid rgba(255,255,255,0.4); pointer-events: auto; touch-action: none; }
+#tstick i { position: absolute; left: 25%; top: 25%; width: 50%; height: 50%; border-radius: 50%; background: rgba(255,255,255,0.55); }
+#tmenu { left: 3vh; top: 3vh; }
+#twp { position: absolute; right: 3vh; top: 3vh; display: flex; gap: 1vh; }
+#twp .tp { position: static; }
+#tchat { right: 3vh; top: 12vh; }
+#touch.pk #tchat { top: 30vh; }
+#trestart { right: 3vh; top: 3vh; }
+#tlvl { position: absolute; right: 3vh; top: 12vh; display: flex; gap: 1vh; }
+#tlvl .tp { position: static; }
+#tboard { right: 3vh; top: 21vh; }
+#touch .pkonly { display: none; }
+#touch .tb small.pkonly { display: none; }
+#touch.pk .tb small.pkonly { display: block; }
+.hud[hidden] { display: none !important; }
+#touch.pk .pkonly { display: block; }
+#touch.pk #tlvl.pkonly { display: flex; }
+#touch.pk .dmonly { display: none !important; }
+#rotate { display: none; position: fixed; inset: 0; z-index: 60; background: #0d0716; place-items: center; text-align: center; padding: 24px; font: 700 1.2rem var(--body); line-height: 1.5; }
+#rotate b { display: block; font-size: 3rem; margin-bottom: 10px; }
+@media (orientation: portrait) { body.touch.playing #rotate { display: grid; } }
+body.touch #pkhint, body.touch #keys, body.touch #dash { display: none !important; }
+body.touch canvas#view { touch-action: none; }
+body.touch #top { left: 14vh; top: 2vh; }
+body.touch #top .big { font-size: 1.2rem; }
+body.touch #pkhud { left: 14vh; top: 2vh; min-width: 0; padding: 5px 10px; font-size: 0.7rem; line-height: 1.3; }
+body.touch #pkhud b { font-size: 1.1rem; }
+body.touch #timer { top: 2vh; font-size: 1.1rem; padding: 3px 12px; }
+body.touch #streakhud { left: 14vh; top: 17vh; }
+body.touch #right { left: 14vh; right: auto; top: 17vh; width: 150px; }
+body.touch.pkmode #right { top: 28vh; }
+body.touch.pkmode #streakhud { top: 28vh; }
+body.touch #lb { padding: 5px 8px; font-size: 0.66rem; }
+body.touch #feed { justify-items: start; font-size: 0.66rem; }
+body.touch #hp { left: 50vh; bottom: 2.5vh; width: 140px; }
+body.touch #ammo { right: auto; left: calc(50vh + 160px); bottom: 1.5vh; text-align: left; }
+body.touch #ammo b { font-size: 1.5rem; }
+body.touch #chat { left: auto; right: 22vh; top: 3vh; bottom: auto; width: min(300px, 32vw); }
+body.touch #pkdone { top: 12%; }
+body.touch #banner { font-size: 1.3rem; top: 14%; }
 </style>
 
 <canvas id="view"></canvas>
@@ -191,6 +248,21 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 <div class="hud" id="hit"></div>
 <div class="scope" id="scope"></div>
 <div id="chat" hidden><div id="chatlog"></div><input id="chatin" maxlength="120" placeholder="Message (Enter to send, Esc to cancel)" autocomplete="off" hidden></div>
+<div id="touch" hidden>
+  <div id="tstick"><i></i></div>
+  <button class="tp" id="tmenu" data-tb="menu">☰</button>
+  <div id="twp" class="dmonly"><button class="tp wp" data-tb="w1" data-w="rifle">Rifle</button><button class="tp wp" data-tb="w2" data-w="sniper">Sniper</button><button class="tp wp" data-tb="w3" data-w="knife">Knife</button></div>
+  <button class="tp" id="tchat" data-tb="chat">💬 Chat</button>
+  <button class="tp pkonly" id="trestart" data-tb="restart">⟲ Restart</button>
+  <div id="tlvl" class="pkonly"><button class="tp" data-tb="prev">◀ Level</button><button class="tp" data-tb="next">Level ▶</button></div>
+  <button class="tp pkonly" id="tboard" data-tb="board">🏆 Day / Month / All</button>
+  <button class="tb dmonly" id="tdash" data-tb="dash">DASH</button>
+  <button class="tb dmonly" id="treload" data-tb="reload">RELOAD</button>
+  <button class="tb dmonly" id="taim" data-tb="aim"><span id="taimt">AIM</span></button>
+  <button class="tb" id="tjump" data-tb="jump">JUMP<small class="pkonly">hold = bhop</small></button>
+  <button class="tb dmonly" id="tfire" data-tb="fire">FIRE</button>
+</div>
+<div id="rotate"><div><b>⟳</b>Turn your phone sideways to play</div></div>
 <div class="hud" id="vig"></div>
 <div class="hud" id="banner"></div>
 <div class="hud" id="coinpop"></div>
@@ -250,6 +322,8 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
+  const TOUCH = navigator.maxTouchPoints > 0 && matchMedia('(pointer: coarse)').matches;
+  if (TOUCH) document.body.classList.add('touch');
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -764,6 +838,8 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     const k = P.weapon === 'knife';
     $('mag').textContent = k ? '–' : P.mag; $('magmax').textContent = k ? '' : '/ ' + WEAPONS[P.weapon].mag;
     $('ammolabel').textContent = k ? 'Knife' : P.reloadT > 0 ? 'Reloading' : 'Ammo';
+    $('taimt').textContent = k ? 'THROW' : 'AIM';
+    document.querySelectorAll('#touch .wp').forEach((b) => b.classList.toggle('sel', b.dataset.w === P.weapon));
   }
   function setWeapon(id) {
     if (runMode !== 'dm' || mapInfo.pk || P.dead || id === P.weapon || state !== 'play') return;
@@ -1280,7 +1356,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   function update(dt) {
     const alive = !P.dead;
     P.dashCd = Math.max(0, P.dashCd - dt); P.fellT = Math.max(0, P.fellT - dt);
-    $('dashfill').style.transform = `scaleX(${1 - P.dashCd / 2.2})`; $('dash').classList.toggle('ready', P.dashCd <= 0);
+    $('dashfill').style.transform = `scaleX(${1 - P.dashCd / 2.2})`; $('dash').classList.toggle('ready', P.dashCd <= 0); $('tdash').classList.toggle('cd', P.dashCd > 0);
     move(dt, alive);
     const spd = Math.hypot(P.vx, P.vz), W = WEAPONS[P.weapon];
     P.fireT = Math.max(0, P.fireT - dt);
@@ -1347,6 +1423,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   // ---------- flow ----------
   function setHud(on) {
     const pk = runMode === 'pk';
+    touchShow(on && state === 'play');
     ['top', 'hp', 'ammo', 'cross', 'dash', 'streakhud', 'timer'].forEach((id) => { $(id).hidden = !on || pk; });
     $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('pkhint').hidden = !on || !pk;
     if (!on) { $('bossbar').hidden = true; $('pkdone').hidden = true; }
@@ -1370,10 +1447,14 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
     if (menu) { renderShop(); renderPick(); renderSkins(); }
   }
   function lock() {
+    if (TOUCH) { drag = true; return; }
     try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
     setTimeout(() => { if (!locked) drag = true; }, 400);
   }
-  function startPlaying() { state = 'play'; $('overlay').hidden = true; setHud(true); lock(); sleeve.color.set(cfg.color); }
+  function startPlaying() {
+    state = 'play'; $('overlay').hidden = true; setHud(true); lock(); sleeve.color.set(cfg.color);
+    if (TOUCH) { try { const de = document.documentElement, p = !document.fullscreenElement && de.requestFullscreen && de.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (e) {} }
+  }
   document.addEventListener('pointerlockchange', () => {
     locked = document.pointerLockElement === canvas;
     if (locked) drag = false; else if (state === 'play' && !chatOpen) { state = 'pause'; showCard('pause'); }
@@ -1422,6 +1503,76 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; rmb = false; });
   addEventListener('wheel', (e) => { if (state !== 'play' || runMode !== 'dm' || chatOpen) return; const i = SLOTS.indexOf(P.weapon); setWeapon(SLOTS[(i + (e.deltaY > 0 ? 1 : 2)) % 3]); }, { passive: true });
+
+
+  // ---------- touch controls ----------
+  // joystick = WASD keys, buttons = the same keys / actions as on a keyboard, right half of the screen = look around
+  function touchShow(on) {
+    if (!TOUCH) return;
+    $('touch').hidden = !on; $('touch').classList.toggle('pk', runMode === 'pk'); document.body.classList.toggle('playing', on); document.body.classList.toggle('pkmode', runMode === 'pk');
+    if (!on) { stickEnd(); tbRelease(); }
+  }
+  const stickEl = $('tstick'), knob = stickEl.firstElementChild;
+  let stickId = null, lookId = null, lookX = 0, lookY = 0;
+  const held = new Map();                         // touch id -> button element
+  function stickMove(t) {
+    const r = stickEl.getBoundingClientRect(), R = r.width / 2;
+    let dx = t.clientX - (r.left + R), dy = t.clientY - (r.top + R); const l = Math.hypot(dx, dy);
+    if (l > R) { dx *= R / l; dy *= R / l; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    const nx = dx / R, ny = dy / R;
+    keys.KeyW = ny < -0.3; keys.KeyS = ny > 0.3; keys.KeyA = nx < -0.3; keys.KeyD = nx > 0.3; keys.ShiftLeft = Math.hypot(nx, ny) > 0.92;   // pushed all the way = run
+  }
+  function stickEnd() { stickId = null; knob.style.transform = ''; keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = keys.ShiftLeft = false; }
+  const fakeKey = (code, down) => dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code }));
+  const TB = {
+    fire:  { down() { mouseDown = true; }, up() { mouseDown = false; } },
+    aim:   { down() { if (P.weapon === 'knife') throwKnife(); else rmb = true; }, up() { rmb = false; } },
+    jump:  { down() { fakeKey('Space', true); }, up() { fakeKey('Space', false); } },
+    reload: { tap: 'KeyR' }, dash: { tap: 'KeyE' }, w1: { tap: 'Digit1' }, w2: { tap: 'Digit2' }, w3: { tap: 'Digit3' },
+    restart: { tap: 'KeyR' }, prev: { tap: 'KeyB' }, next: { tap: 'KeyN' }, board: { tap: 'KeyV' },
+    chat: { down() { openChat(); } },
+    menu: { down() { if (state !== 'play') return; state = 'pause'; mouseDown = false; rmb = false; showCard('pause'); } }
+  };
+  function tbDown(el) { const a = TB[el.dataset.tb]; if (!a) return; el.classList.add('on'); if (a.tap) { fakeKey(a.tap, true); setTimeout(() => fakeKey(a.tap, false), 60); } else a.down(); }
+  function tbUp(el) { const a = TB[el.dataset.tb]; el.classList.remove('on'); if (a && a.up) a.up(); }
+  function tbRelease() { held.forEach((el) => tbUp(el)); held.clear(); lookId = null; }
+  if (TOUCH) {
+    const live = (e) => state === 'play' && !chatOpen && !$('touch').hidden;
+    addEventListener('touchstart', (e) => {
+      if (!live(e)) return;
+      if (e.target.tagName === 'INPUT') return;
+      if (e.cancelable) e.preventDefault();
+      for (const t of e.changedTouches) {
+        const btn = t.target.closest && t.target.closest('[data-tb]');
+        if (t.target.closest && t.target.closest('#tstick')) { if (stickId === null) { stickId = t.identifier; stickMove(t); } }
+        else if (btn) { held.set(t.identifier, btn); tbDown(btn); }
+        else if (lookId === null && t.clientX > innerWidth * 0.3) { lookId = t.identifier; lookX = t.clientX; lookY = t.clientY; }
+      }
+    }, { passive: false });
+    addEventListener('touchmove', (e) => {
+      if (!live(e)) return;
+      if (e.cancelable) e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === stickId) stickMove(t);
+        else if (t.identifier === lookId) {
+          const sk = cfg.sens * (1 - (P.weapon === 'sniper' ? 0.7 : 0.45) * ads) * 0.0042;
+          P.yaw -= (t.clientX - lookX) * sk; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - (t.clientY - lookY) * sk));
+          lookX = t.clientX; lookY = t.clientY;
+        }
+      }
+    }, { passive: false });
+    const end = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === stickId) stickEnd();
+        if (t.identifier === lookId) lookId = null;
+        const el = held.get(t.identifier); if (el) { held.delete(t.identifier); tbUp(el); }
+      }
+    };
+    addEventListener('touchend', end); addEventListener('touchcancel', end);
+    addEventListener('contextmenu', (e) => e.preventDefault());
+    chatIn.addEventListener('blur', () => { if (chatOpen) closeChat(false); });
+  }
 
   // ---------- loop ----------
   let prev = performance.now();
