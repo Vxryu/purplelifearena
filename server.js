@@ -16,7 +16,10 @@ const INTERMISSION = 10;
 const MAX_PER_ROOM = 12;
 const TICK = 0.05;              // 20 Hz
 
-const page = fs.readFileSync(path.join(__dirname, 'public', 'index.html'));
+// index.html is normally in public/, but also accepted next to server.js (in case the folder was not uploaded to GitHub)
+const pageFile = [path.join(__dirname, 'public', 'index.html'), path.join(__dirname, 'index.html')].find((f) => fs.existsSync(f));
+if (!pageFile) { console.error('index.html not found: put it in a "public" folder next to server.js'); process.exit(1); }
+const page = fs.readFileSync(pageFile);
 const server = http.createServer((req, res) => {
   if (req.url === '/healthz') { res.writeHead(200); res.end('ok'); return; }
   if (req.url === '/' || req.url.startsWith('/?') || req.url === '/index.html') {
@@ -137,7 +140,7 @@ const plist = (room) => [...room.players.values()];
 function makeRoom(mode, mapId) {
   return { mode, map: getMap(mapId), players: new Map(), mobs: [], queue: [], phase: mode === 'dm' ? 'play' : 'idle', timeLeft: MATCH_SECONDS, t: 0, level: 1, wave: 0, spawnT: 0, nextMob: 1, info: '', boss: null };
 }
-const rooms = { dm: makeRoom('dm', 'arena'), camp: makeRoom('camp', 'forest1'), endless: makeRoom('endless', 'arena') };
+const rooms = { dm: makeRoom('dm', 'arena') };   // campaign and endless code is still below but not enabled
 const pkRooms = {};
 function pkRoom(n) { if (!pkRooms[n]) { pkRooms[n] = makeRoom('pk', 'pk' + n); pkRooms[n].level = n; } return pkRooms[n]; }
 const allRooms = () => Object.values(rooms).concat(Object.values(pkRooms));
