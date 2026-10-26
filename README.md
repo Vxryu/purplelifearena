@@ -116,3 +116,8 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - **Parkour** : chaque niveau est généré avec une graine fixe, puis testé avec un robot qui rejoue la physique du jeu. Tous les sauts sont faisables à vitesse normale, sans bhop obligatoire.
 - **Skins et total de kills** : stockés dans le navigateur du joueur (`localStorage`), ils ne sont donc pas protégés contre la modification et ne suivent pas le joueur d'un navigateur à l'autre.
 - **Chat** : 120 caractères maximum, un message toutes les 0,7 s, sans filtre de mots.
+
+## Visuals (v2)
+- Menu redesigned: split layout, animated backdrop, mode cards, bigger Play button, restyled skins and settings.
+- Cinematic rendering: filmic tone mapping, vignette, ambient particles per biome (dust, fireflies, embers, snow, bubbles), speed FOV in parkour, landing dip.
+- First-person weapon: more detailed model (rail, optic, handguard, glowing strips colored by skin) and new animations (sway, breathing, walk bob, reload, weapon raise, jump/land).
