@@ -192,9 +192,35 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 #treload { right: 41vh; bottom: 6vh; width: 14vh; height: 14vh; font-size: 2.5vh; }
 #tdash { right: 27vh; bottom: 38vh; width: 12vh; height: 12vh; font-size: 2.4vh; }
 #tdash.cd { opacity: 0.4; }
-#touch.pk #tjump { right: 10vh; bottom: 9vh; width: 31vh; height: 31vh; font-size: 3.8vh; }
-#tstick { position: absolute; left: 9vh; bottom: 8vh; width: 38vh; height: 38vh; border-radius: 50%; background: rgba(30,16,56,0.4); border: 0.5vh solid rgba(255,255,255,0.4); pointer-events: auto; touch-action: none; }
-#tstick i { position: absolute; left: 25%; top: 25%; width: 50%; height: 50%; border-radius: 50%; background: rgba(255,255,255,0.55); }
+#tslide { right: 42vh; bottom: 46vh; width: 12vh; height: 12vh; font-size: 2.2vh; }
+#touch.pk #tjump { right: 6vh; bottom: 6vh; width: 34vh; height: 34vh; font-size: 4vh; background: rgba(180,107,255,0.5); box-shadow: 0 0 4vh rgba(180,107,255,0.4); }
+#tstick { position: absolute; left: 0; bottom: 0; width: 42vw; height: 78vh; pointer-events: auto; touch-action: none; }
+#tring { position: absolute; left: 7vh; bottom: 7vh; width: 30vh; height: 30vh; border-radius: 50%; background: radial-gradient(circle, rgba(30,16,56,0.18) 0 55%, rgba(30,16,56,0.42) 100%); border: 0.45vh solid rgba(255,255,255,0.32); transition: opacity .15s, border-color .15s; opacity: 0.75; pointer-events: none; }
+#tring.act { opacity: 1; border-color: rgba(217,184,255,0.85); box-shadow: 0 0 3vh rgba(180,107,255,0.45); }
+#tring i { position: absolute; left: 31%; top: 31%; width: 38%; height: 38%; border-radius: 50%; background: rgba(255,255,255,0.6); box-shadow: 0 0 2vh rgba(180,107,255,0.6); }
+#touch .tt { position: absolute; pointer-events: auto; touch-action: none; display: none; place-items: center; width: 13vh; height: 13vh; border-radius: 50%; background: rgba(30,16,56,0.55); border: 0.45vh solid rgba(255,255,255,0.4); color: #fff; font: 800 2vh var(--body); text-align: center; line-height: 1.1; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#touch .tt small { display: block; font: 700 1.5vh var(--body); opacity: 0.75; margin-top: 0.3vh; }
+#touch .tt.lock { background: rgba(180,107,255,0.7); border-color: #e6cfff; box-shadow: 0 0 3vh rgba(180,107,255,0.7); }
+#touch.pk #tauto, #touch.pk #tassist, #touch.pk #tfwd { display: grid; }
+#tfwd { right: 43vh; bottom: 33vh; }
+#touch .parr { display: none; width: 24vh; height: 24vh; font-size: 7vh; background: rgba(30,16,56,0.5); }
+#touch.pk .parr { display: grid; }
+#touch.pk #tstick { display: none; }
+#tleft { left: 4vh; bottom: 6vh; }
+#tright { left: 30vh; bottom: 6vh; }
+#tauto { right: 11vh; bottom: 43vh; }
+#tassist { right: 27vh; bottom: 38vh; }
+#bhud { position: fixed; left: 50%; bottom: 14vh; transform: translateX(-50%); z-index: 3; pointer-events: none; text-align: center; font-family: var(--display); color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+#bhud .sp { font-size: 2.6rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+#bhud .sp small { font-size: 0.8rem; opacity: 0.7; margin-left: 4px; letter-spacing: 0.08em; }
+#bhbar { width: 220px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.18); margin: 6px auto 4px; overflow: hidden; }
+#bhbar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #7a5cff, #ff4d7a, #ffd166); }
+#bhud .row { display: flex; gap: 14px; justify-content: center; font: 800 0.85rem var(--body); letter-spacing: 0.06em; }
+#bhud .row span { opacity: 0.9; }
+#bhcombo.hot { color: #ffd166; }
+body.touch #bhud { bottom: auto; top: 11vh; }
+body.touch #bhud .sp { font-size: 1.7rem; }
+body.touch #bhbar { width: 150px; }
 #tmenu { left: 3vh; top: 3vh; }
 #twp { position: absolute; right: 3vh; top: 3vh; display: flex; gap: 1vh; }
 #twp .tp { position: static; }
@@ -336,6 +362,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
 <div class="hud" id="top" hidden><small>Kills</small><span class="big" id="kills">0</span><span class="coins">Coins <span id="coinhud">0</span></span></div>
 <div class="hud" id="streakhud" hidden></div>
 <div class="hud" id="timer" hidden>1:30</div>
+<div class="hud" id="bhud" hidden><div class="sp"><span id="bhsp">0.0</span><small>U/S</small></div><div id="bhbar"><i id="bhfill"></i></div><div class="row"><span id="bhcombo">BHOP ×0</span><span id="bhsync">SYNC –</span></div></div>
 <div class="hud" id="pkhud" hidden><small id="pkname">Level 1</small><b id="pktime">0:00.00</b><span id="pkcp">Falls 0</span><br><small id="pkbest"></small></div>
 <div class="hud" id="pkdone" hidden></div>
 <div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; B / N: previous / next level &middot; V: daily / monthly / all-time board</div>
@@ -348,7 +375,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
 <div class="scope" id="scope"></div>
 <div id="chat" hidden><div id="chatlog"></div><input id="chatin" maxlength="120" placeholder="Message (Enter to send, Esc to cancel)" autocomplete="off" hidden></div>
 <div id="touch" hidden>
-  <div id="tstick"><i></i></div>
+  <div id="tstick"><div id="tring"><i></i></div></div>
   <button class="tp" id="tmenu" data-tb="menu">☰</button>
   <div id="twp" class="dmonly"><button class="tp wp" data-tb="w1" data-w="rifle">Rifle</button><button class="tp wp" data-tb="w2" data-w="sniper">Sniper</button><button class="tp wp" data-tb="w3" data-w="knife">Knife</button></div>
   <button class="tp" id="tchat" data-tb="chat">💬 Chat</button>
@@ -356,8 +383,14 @@ body.touch #tutcap span { font-size: 0.78rem; }
   <div id="tlvl" class="pkonly"><button class="tp" data-tb="prev">◀ Level</button><button class="tp" data-tb="next">Level ▶</button></div>
   <button class="tp pkonly" id="tboard" data-tb="board">🏆 Day / Month / All</button>
   <button class="tb dmonly" id="tdash" data-tb="dash">DASH</button>
+  <button class="tb dmonly" id="tslide" data-tb="slide">SLIDE</button>
   <button class="tb dmonly" id="treload" data-tb="reload">RELOAD</button>
   <button class="tb dmonly" id="taim" data-tb="aim"><span id="taimt">AIM</span></button>
+  <button class="tb parr" id="tleft" data-tb="left">◀</button>
+  <button class="tb parr" id="tright" data-tb="right">▶</button>
+  <button class="tt" id="tfwd" data-tb="fwd">FWD<small>auto-run</small></button>
+  <button class="tt" id="tauto" data-tb="auto">AUTO<small>bhop</small></button>
+  <button class="tt" id="tassist" data-tb="assist">ASSIST<small>strafe</small></button>
   <button class="tb" id="tjump" data-tb="jump">JUMP<small class="pkonly">hold = bhop</small></button>
   <button class="tb dmonly" id="tfire" data-tb="fire">FIRE</button>
 </div>
@@ -418,6 +451,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
           <li><b>Weapons</b><span>Deathmatch: 1 rifle, 2 sniper (one shot, slow reload between shots), 3 knife (2 hits, 1 from behind). Right click aims; with the knife it throws it. Enter opens the global chat.</span></li>
           <li><b>Move</b><span>WASD (ZQSD on a French keyboard), Shift or Left Ctrl to run, Space to jump. If your browser closes the tab with Ctrl+W, press W first then Ctrl, or play in fullscreen (F).</span></li>
           <li><b>Shoot</b><span>Left click, hold for full auto. R reloads. Headshots deal double.</span></li>
+          <li><b>Slide</b><span>C while running (Deathmatch): a fast low slide that keeps going downhill on ramps and shrinks your hitbox. Jump to leave it with your speed.</span></li>
           <li><b>Dash</b><span>E, a quick burst (not in Parkour). Low crates and barriers can be jumped on.</span></li>
           <li><b>Parkour</b><span>Hold Space to bunny hop. In the air, turn the mouse and hold A or D to gain speed. R restarts the level, N and B switch to the next or previous level.</span></li>
           <li><b>Pause</b><span>Esc</span></li>
@@ -505,7 +539,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function savePk() { try { localStorage.setItem('parena_pk_pb2', JSON.stringify(pkPB)); } catch (e) {} }
 
   // ---------- settings and wallet (saved in this browser) ----------
-  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0, ks: true };
+  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0, ks: true, assist: true, fwd: true };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem('parena_online3') || '{}')); } catch (e) {}
   if (cfg.mode !== 'dm' && cfg.mode !== 'pk') cfg.mode = 'dm';
   if (!skinOk(cfg.skin)) cfg.skin = 0;
@@ -749,14 +783,23 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const trees = [], crystals = [], propPlats = [];
     for (const e of msg.b) {
       const kind = e[0], x = e[1], z = e[2], w = e[3], d = e[4], h = e[5], col = e[6], y0 = e[7] || 0;
-      boxes.push({ x, z, w, d, h, y: y0 });
+      boxes.push({ x, z, w, d, h, y: y0, rd: kind === 'ramp' ? (e[8] | 0) : -1 });
       if (kind === 'tree') { trees.push([x, z, h]); continue; }
       let geo;
       if (kind === 'barrel' || kind === 'pipe' || kind === 'pillar') geo = new THREE.CylinderGeometry(w / 2, w / 2, h, 14);
       else if (kind === 'stalag') geo = new THREE.ConeGeometry(w / 2, h, 6);
       else if (kind === 'crystal') { geo = new THREE.ConeGeometry(w / 2, h, 5); crystals.push([x, z, h]); }
+      else if (kind === 'ramp') {
+        // wedge: a box whose low half of the top face is pulled down; built along local x and turned to face its direction
+        const rd = e[8] | 0, along = rd < 2, L = along ? w : d, Wd = along ? d : w;
+        geo = new THREE.BoxGeometry(L, h, Wd); const pa = geo.attributes.position;
+        for (let i = 0; i < pa.count; i++) if (pa.getY(i) > 0 && pa.getX(i) < 0) pa.setY(i, -h / 2);
+        geo.computeVertexNormals();
+        geo.userData = { rd };
+      }
       else geo = new THREE.BoxGeometry(w, h, d);
-      const mesh = new THREE.Mesh(geo, boxMaterial(kind, col, w, d, h, th));
+      const mesh = new THREE.Mesh(geo, boxMaterial(kind === 'ramp' ? 'block' : kind, col, w, d, h, th));
+      if (kind === 'ramp') mesh.rotation.y = [0, Math.PI, -Math.PI / 2, Math.PI / 2][e[8] | 0];
       mesh.position.set(x, y0 + h / 2, z); mesh.castShadow = kind !== 'edge'; mesh.receiveShadow = true; world.add(mesh); solids.push(mesh);
       if ((kind === 'cp' || kind === 'finish' || kind === 'start') && pk) {
         const c = kind === 'cp' ? 0x4d7bff : kind === 'finish' ? 0xffd24d : 0x4dff9a;
@@ -926,10 +969,34 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function nextPeriod(manual) { pkPeriod = (pkPeriod + 1) % 3; if (manual) pkPerAt = performance.now(); refreshBoards(); if (manual) banner(['Daily', 'Monthly', 'All-time'][pkPeriod] + ' leaderboard', 1100); }
   setInterval(() => { if (mapInfo.pk && state !== 'menu' && performance.now() - pkPerAt > 15000) nextPeriod(false); }, 7000);
 
-  function pushOut(p, r, y) {
+  function rampH(b, x, z) {
+    const t = b.rd === 0 ? (x - (b.x - b.w / 2)) / b.w : b.rd === 1 ? 1 - (x - (b.x - b.w / 2)) / b.w : b.rd === 2 ? (z - (b.z - b.d / 2)) / b.d : 1 - (z - (b.z - b.d / 2)) / b.d;
+    return b.y + b.h * Math.max(0, Math.min(1, t));
+  }
+  // downhill direction and steepness (rise over run) of the ramp under (x, z), or null
+  function slopeAt(x, z, y) {
     for (const b of boxes) {
-      if (y >= b.y + b.h - 0.05 || y + 1.8 <= b.y) continue;
+      if (b.rd < 0 || Math.abs(x - b.x) > b.w / 2 || Math.abs(z - b.z) > b.d / 2 || Math.abs(rampH(b, x, z) - y) > 0.6) continue;
+      const run = b.rd < 2 ? b.w : b.d, k = b.h / run, dx = b.rd === 0 ? -1 : b.rd === 1 ? 1 : 0, dz = b.rd === 2 ? -1 : b.rd === 3 ? 1 : 0;
+      return { dx, dz, k };
+    }
+    return null;
+  }
+  // on a ramp, stepping from its top edge onto the neighbouring deck must work even if the slope has not quite reached it
+  function rampTolAt(x, z, y) {
+    for (const b of boxes) {
+      if (b.rd < 0 || Math.abs(x - b.x) > b.w / 2 + 0.6 || Math.abs(z - b.z) > b.d / 2 + 0.6) continue;
+      const nx = Math.max(b.x - b.w / 2, Math.min(x, b.x + b.w / 2)), nz = Math.max(b.z - b.d / 2, Math.min(z, b.z + b.d / 2));
+      if (Math.abs(rampH(b, nx, nz) - y) < 0.5) return 0.6;
+    }
+    return 0;
+  }
+  function pushOut(p, r, y) {
+    const tol = mapInfo.pk ? 0 : rampTolAt(p.x, p.z, y);
+    for (const b of boxes) {
+      if (y >= b.y + b.h - 0.05 - (b.rd < 0 ? tol : 0) || y + 1.8 <= b.y) continue;
       const nx = Math.max(b.x - b.w / 2, Math.min(p.x, b.x + b.w / 2)), nz = Math.max(b.z - b.d / 2, Math.min(p.z, b.z + b.d / 2));
+      if (b.rd >= 0 && y >= rampH(b, nx, nz) - 0.5) continue;
       let dx = p.x - nx, dz = p.z - nz, d2 = dx * dx + dz * dz;
       if (d2 < r * r) {
         if (d2 < 1e-6) { dx = p.x - b.x; dz = p.z - b.z; d2 = dx * dx + dz * dz || 1; }
@@ -938,22 +1005,27 @@ body.touch #tutcap span { font-size: 0.78rem; }
     }
     if (!mapInfo.pk) { const H = mapInfo.half; p.x = Math.max(-H + r, Math.min(H - r, p.x)); p.z = Math.max(-H + r, Math.min(H - r, p.z)); }
   }
+  let rampTol = 0;
   function groundAt(x, z, y) {
     let g = mapInfo.pk ? -1e9 : 0;
     for (const b of boxes) {
+      if (b.rd >= 0) {
+        if (Math.abs(x - b.x) > b.w / 2 + 0.05 || Math.abs(z - b.z) > b.d / 2 + 0.05) continue;
+        const hs = rampH(b, x, z); if (hs <= y + 0.5 && hs > g) g = hs; continue;
+      }
       const top = b.y + b.h;
-      if (top > y + 0.15 || top <= g) continue;
+      if (top > y + 0.15 + rampTol || top <= g) continue;
       if (Math.abs(x - b.x) < b.w / 2 + 0.25 && Math.abs(z - b.z) < b.d / 2 + 0.25) g = top;
     }
     return g;
   }
 
   // ---------- state ----------
-  const P = { x: 0, y: 0, z: 22, vx: 0, vz: 0, vy: 0, yaw: 0, pitch: 0, hp: 100, mag: 30, reloadT: 0, fireT: 0, kick: 0, dashT: 0, dashCd: 0, dashX: 0, dashZ: 0, dead: false, stepT: 0, weapon: 'rifle', fellT: 0 };
+  const P = { x: 0, y: 0, z: 22, vx: 0, vz: 0, vy: 0, yaw: 0, pitch: 0, hp: 100, mag: 30, reloadT: 0, fireT: 0, kick: 0, dashT: 0, dashCd: 0, dashX: 0, dashZ: 0, dead: false, gr: false, slideT: 0, slideCd: 0, slideK: 0, stepT: 0, weapon: 'rifle', fellT: 0 };
   const EYE = 1.7;
   let state = 'menu', phase = 'play', myId = 0, tl = 90, streak = 0, bestKills = 0, runMode = 'dm';
   let pkFalls = 0, pkLevel = 1, pkCp = 0, pkCpN = 0, pkT0 = 0, pkTime = null, pkDone = false;
-  let flashT = 0, fovBoost = 0, locked = false, drag = false, mouseDown = false, jumpBuf = 0;
+  let assistDir = 0, assistT = 0, autoJ = false, flashT = 0, fovBoost = 0, locked = false, drag = false, mouseDown = false, jumpBuf = 0;
   let tracers = [], sparks = [], decals = [];
   const keys = {}, remotes = new Map(), mobs = new Map();
   try { bestKills = +localStorage.getItem('parena_online_best') || 0; } catch (e) {}
@@ -1283,7 +1355,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
   }
 
   // ---------- networking ----------
-  let ws = null, sendTimer = 0;
+  let ws = null, sendTimer = 0, rtt = 0;
+  setInterval(() => wsSend({ t: 'ping', c: performance.now() }), 2000);
   function wsSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
   function setMsg(t) { $('msg').textContent = t; }
   const esc = (s) => String(s).replace(/[<>&]/g, '');
@@ -1314,7 +1387,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       $('magmax').textContent = '/ ' + WEAPONS[P.weapon].mag; updateAmmo(); $('lbk').textContent = runMode === 'dm' ? 'K / D' : runMode === 'pk' ? 'Falls' : 'K / $';
       $('play').disabled = false; startPlaying();
       clearInterval(sendTimer);
-      sendTimer = setInterval(() => { if (state === 'play' && !P.dead && !replay) wsSend({ t: 'st', x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch }); }, 50);
+      sendTimer = setInterval(() => { if (state === 'play' && !P.dead && !replay) wsSend({ t: 'st', x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, sl: P.slideT > 0 ? 1 : 0 }); }, 50);
     } else if (m.t === 'map') {
       endReplay();
       buildWorld(m); pkCp = 0; pkCpN = m.pk ? m.pk.cps.length : 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud();
@@ -1324,6 +1397,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
       P.x = m.x; P.y = m.y; P.z = m.z; P.vx = P.vz = P.vy = 0;
     } else if (m.t === 'pkr') {
       pkT0 = 0; pkTime = null; pkDone = false; pkFalls = m.f || 0; $('pkdone').hidden = true; pkHud();
+    } else if (m.t === 'pong') {
+      const d = performance.now() - m.c; if (d >= 0 && d < 3000) rtt = rtt ? rtt * 0.6 + d * 0.4 : d;
     } else if (m.t === 'dmstat') {
       if (m.k > totalKills) { totalKills = m.k; try { localStorage.setItem('parena_total_kills', totalKills); } catch (e) {} renderSkins(); }
       dmFetchAt = -1e9;
@@ -1359,7 +1434,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
         if (o.skinIdx !== (r[13] | 0)) applyRemoteSkin(o, r[13] | 0);
         if (o.cur !== (r[14] | 0)) { o.cur = r[14] | 0; o.gunMesh.visible = o.cur !== 2; o.gunMesh.scale.z = o.cur === 1 ? 1.6 : 1; }
         if (o.tone !== r[12]) { o.tone = r[12]; o.skin.color.set(TONES[r[12]] || TONES[1]); }
-        o.tx = r[2]; o.ty = r[3]; o.tz = r[4]; o.tyaw = r[5];
+        o.tx = r[2]; o.ty = r[3]; o.tz = r[4]; o.tyaw = r[5]; o.sl = r[15] | 0;
         if (!o.init) { o.x = o.tx; o.y = o.ty; o.z = o.tz; o.yaw = o.tyaw; o.init = true; }
         o.g.visible = !r[7]; const op = r[11] ? 0.45 : 1; o.mats.forEach((mm) => { mm.opacity = op; });
       }
@@ -1402,7 +1477,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       P.dead = true; streak = 0; streakHud(); mouseDown = false; P.hp = 0; updateHp();
       banner('Eliminated by ' + m.by + (runMode === 'endless' ? '. Watching your squad.' : runMode === 'camp' ? '. Respawning soon.' : ''), 2400); beep(90, 0.5, 'sawtooth', 0.09, 0.4);
     } else if (m.t === 'respawn') {
-      P.x = m.x; P.z = m.z; P.y = m.y || 0; P.vx = P.vz = P.vy = 0; P.hp = m.hp; P.dead = false; magOf.rifle = 30; magOf.sniper = 5; throwCd = 0; P.mag = P.weapon === 'knife' ? 0 : WEAPONS[P.weapon].mag; P.reloadT = 0; P.fellT = 0.4;
+      P.x = m.x; P.z = m.z; P.y = m.y || 0; P.vx = P.vz = P.vy = 0; P.slideT = 0; P.slideCd = 0; P.gr = false; P.hp = m.hp; P.dead = false; magOf.rifle = 30; magOf.sniper = 5; throwCd = 0; P.mag = P.weapon === 'knife' ? 0 : WEAPONS[P.weapon].mag; P.reloadT = 0; P.fellT = 0.4;
       if (mapInfo.pk && pkCp === 0) { P.yaw = Math.PI; P.pitch = 0; }
       $('ammolabel').textContent = 'Ammo'; updateAmmo(); updateHp();
     } else if (m.t === 'k') {
@@ -1542,7 +1617,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (mapInfo.pk || P.reloadT > 0 || P.fireT > 0 || P.dead || P.weapon === 'knife') return;
     if (P.mag <= 0) { reload(); return; }
     P.mag--; P.fireT = W.rate; P.kick = Math.min(2, 0.6 + W.dmg / 60); flashT = 0.05; fireSound(cfg.skin, P.weapon, 1); updateAmmo();
-    wsSend({ t: 'shot', yaw: P.yaw, pitch: P.pitch, ads: ads > 0.6 ? 1 : 0 });
+    wsSend({ t: 'shot', yaw: P.yaw, pitch: P.pitch, ads: ads > 0.6 ? 1 : 0, rtt: Math.round(rtt) });
     const mz = new THREE.Vector3(0.22, -0.2, -1.0); camera.localToWorld(mz);
     for (let i = 0; i < Math.min(W.pellets, 4); i++) {
       camera.getWorldDirection(dir);
@@ -1569,27 +1644,51 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function move(dt, alive) {
     const pk = !!mapInfo.pk;
     const fwd = alive ? (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) : 0;
-    const side = alive ? (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) : 0;
+    let side = alive ? (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) : 0;
+    assistT = Math.max(0, assistT - dt);
+    // phones: swiping to turn in the air also strafes that way (the bhop trick, done for you)
+    if (alive && pk && TOUCH && cfg.assist !== false && assistT > 0 && side === 0 && P.y > groundAt(P.x, P.z, P.y) + 0.05) side = assistDir;
     let wx = -Math.sin(P.yaw) * fwd + Math.cos(P.yaw) * side, wz = -Math.cos(P.yaw) * fwd - Math.sin(P.yaw) * side;
     const wl = Math.hypot(wx, wz); if (wl > 0) { wx /= wl; wz /= wl; }
+    rampTol = pk ? 0 : rampTolAt(P.x, P.z, P.y);
     const run = pk ? 9 : (keys.ShiftLeft || keys.ShiftRight || keys.ControlLeft) ? 9 : 6.5, g = groundAt(P.x, P.z, P.y);
-    const onGround = P.y <= g + 0.001 && P.vy <= 0;
+    const stick = !pk && P.gr && P.vy <= 0, onGround = P.vy <= 0 && P.y <= g + (stick ? 0.35 : 0.001);
     jumpBuf = Math.max(0, jumpBuf - dt);
     let jumped = false;
-    if (onGround && alive && (jumpBuf > 0 || (pk && keys.Space))) { P.vy = 7; jumpBuf = 0; jumped = true; beep(180, 0.06, 'triangle', 0.02); }
+    if (pk && onGround) P.gT = (P.gT || 0) + dt;
+    if (onGround && alive && (jumpBuf > 0 || (pk && keys.Space))) {
+      P.vy = 7; jumpBuf = 0; jumped = true; beep(180, 0.06, 'triangle', 0.02);
+      if (pk) { if ((P.gT || 0) < 0.12 && P.combo > 0) P.combo++; else { P.combo = 1; P.air = 0; P.gn = 0; } P.gT = 0; }
+    }
     if (!pk) {
-      const tx = wx * run, tz = wz * run, acc = (onGround ? 60 : 14) * dt;
-      let dx = tx - P.vx, dz = tz - P.vz; const dl = Math.hypot(dx, dz);
-      if (dl > acc) { dx = dx / dl * acc; dz = dz / dl * acc; }
-      P.vx += dx; P.vz += dz;
+      P.slideCd = Math.max(0, P.slideCd - dt);
+      const sl = P.slideT > 0 ? slopeAt(P.x, P.z, P.y) : null, spN = Math.hypot(P.vx, P.vz);
+      if (P.slideT > 0 && (!onGround || !alive || (spN < 3.2 && !(sl && sl.k > 0.15)))) { P.slideT = 0; P.slideCd = 0.5; }
+      if (P.slideT > 0) {
+        // sliding: low friction, gravity pulls you down ramps, weak steering
+        P.slideT -= dt;
+        if (sl) { P.slideT = Math.max(P.slideT, 0.25); const gA = 26 * sl.k / Math.sqrt(1 + sl.k * sl.k); P.vx += sl.dx * gA * dt; P.vz += sl.dz * gA * dt; }
+        const fr = Math.max(0, 1 - (sl ? 0.12 : 1.1) * dt); P.vx *= fr; P.vz *= fr;
+        P.vx += wx * 5 * dt; P.vz += wz * 5 * dt;
+        const s3 = Math.hypot(P.vx, P.vz); if (s3 > 17) { P.vx *= 17 / s3; P.vz *= 17 / s3; }
+        if (P.slideT <= 0) P.slideCd = 0.5;
+      } else {
+        const tx = wx * run, tz = wz * run, acc = (onGround ? 60 : 14) * dt;
+        let dx = tx - P.vx, dz = tz - P.vz; const dl = Math.hypot(dx, dz);
+        if (dl > acc) { dx = dx / dl * acc; dz = dz / dl * acc; }
+        P.vx += dx; P.vz += dz;
+      }
     } else {
       if (onGround && !jumped) {
         const sp = Math.hypot(P.vx, P.vz);
         if (sp > 0.01) { const k = Math.max(0, sp - Math.max(sp, 3) * 7 * dt) / sp; P.vx *= k; P.vz *= k; }
         if (wl > 0) { const add = run - (P.vx * wx + P.vz * wz); if (add > 0) { const gain = Math.min(add, 10 * run * dt); P.vx += wx * gain; P.vz += wz * gain; } }
-      } else if (wl > 0) {
-        const cap = 0.9, add = cap - (P.vx * wx + P.vz * wz);
-        if (add > 0) { const gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; }
+      } else {
+        P.air = (P.air || 0) + 1;
+        if (wl > 0) {
+          const cap = 0.9, add = cap - (P.vx * wx + P.vz * wz);
+          if (add > 0) { const gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; P.gn = (P.gn || 0) + 1; }
+        }
       }
       const sp2 = Math.hypot(P.vx, P.vz); if (sp2 > 17) { P.vx *= 17 / sp2; P.vz *= 17 / sp2; }
     }
@@ -1601,10 +1700,19 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (P.dashT > 0) { P.dashT -= dt; P.x += P.dashX * 30 * dt; P.z += P.dashZ * 30 * dt; pushOut(P, 0.45, P.y); }
     const wasAir = P.y > g + 0.01;
     let ny = P.y + P.vy * dt; const g2 = groundAt(P.x, P.z, Math.max(P.y, ny));
-    if (ny <= g2 && P.vy <= 0) { ny = g2; if (wasAir && P.vy < -4) beep(60, 0.08, 'triangle', 0.04); P.vy = 0; }
+    let landed = false;
+    if (ny <= g2 && P.vy <= 0) { ny = g2; if (wasAir && P.vy < -4) beep(60, 0.08, 'triangle', 0.04); P.vy = 0; landed = true; }
+    else if (stick && onGround && !jumped && P.vy <= 0 && ny - g2 < 0.35) { ny = g2; P.vy = 0; landed = true; }     // stay glued to ramps going down
+    P.gr = landed;
     P.y = Math.max(pk ? -1e9 : 0, ny);
   }
 
+  function startSlide() {
+    if (mapInfo.pk || tutorial || replay || P.dead || state !== 'play' || P.slideT > 0 || P.slideCd > 0 || !P.gr) return;
+    const sp = Math.hypot(P.vx, P.vz); if (sp < 4.5) return;
+    const k = Math.min(13.5, Math.max(11, sp * 1.3)) / sp; P.vx *= k; P.vz *= k; P.slideT = 0.9;
+    beep(140, 0.35, 'sawtooth', 0.03, 0.6);
+  }
   // ---------- update ----------
   function update(dt) {
     const alive = !P.dead;
@@ -1616,24 +1724,25 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (P.reloadT > 0) { P.reloadT -= dt; if (P.reloadT <= 0) { P.mag = W.mag; $('ammolabel').textContent = 'Ammo'; updateAmmo(); } }
     if (mouseDown && alive && (locked || drag)) { if (P.weapon === 'knife') stab(); else shoot(); }
     P.kick = Math.max(0, P.kick - dt * 9);
-    const bob = Math.sin(performance.now() / 95) * Math.min(spd, 9) * 0.0016 * (P.y === 0 ? 1 : 0);
+    const bob = Math.sin(performance.now() / 95) * Math.min(spd, 9) * 0.0016 * (P.gr && !mapInfo.pk && P.slideT <= 0 ? 1 : 0);
     if (!$('ks').hidden) {
       const on = (id, v) => $(id).classList.toggle('on', !!v);
       on('ksW', keys.KeyW || keys.ArrowUp); on('ksA', keys.KeyA || keys.ArrowLeft); on('ksS', keys.KeyS || keys.ArrowDown); on('ksD', keys.KeyD || keys.ArrowRight); on('ksSp', keys.Space);
       $('kssv').textContent = spd.toFixed(1);
     }
     { const air = P.y > 0.05 && P.vy !== 0; if (wasAir && !air && P.vyLast < -4) landDip = Math.min(0.16, -P.vyLast * 0.012); wasAir = air; P.vyLast = P.vy; landDip = Math.max(0, landDip - dt * 0.9 - landDip * dt * 6); }
-    camera.position.set(P.x, P.y + (alive ? EYE : 0.5) + bob - landDip, P.z);
+    P.slideK += ((P.slideT > 0 ? 1 : 0) - P.slideK) * Math.min(1, dt * 12);
+    camera.position.set(P.x, P.y + (alive ? EYE - 0.75 * P.slideK : 0.5) + bob - landDip, P.z);
     const demo = tutorial && tutMode === 'demo', cy = demo ? tutVY : P.yaw;
-    camera.rotation.set(P.pitch + P.kick * 0.014 + (demo ? Math.sin(performance.now() / 700) * 0.012 : 0), cy, alive ? 0 : 0.7);
-    const isK = P.weapon === 'knife';
+    camera.rotation.set(P.pitch + P.kick * 0.014 + (demo ? Math.sin(performance.now() / 700) * 0.012 : 0), cy, alive ? P.slideK * 0.04 : 0.7);
+    const isK = P.weapon === 'knife', pk0 = !!mapInfo.pk;
     ads += (((alive && !mapInfo.pk && !isK && P.reloadT <= 0 && rmb && !chatOpen) ? 1 : 0) - ads) * Math.min(1, dt * 11);
     throwCd = Math.max(0, throwCd - dt); stabT = Math.max(0, stabT - dt);
     const scoped = P.weapon === 'sniper' && ads > 0.85 && alive;
     gun.visible = alive && !mapInfo.pk && !isK && !scoped;
     {
       // weapon animation: look sway, idle breathing, figure-8 walk bob, jump/land, reload dip, switch raise, recoil
-      const now = performance.now() / 1000, mv = Math.min(spd, 12) / 12, grounded = P.y === 0 || Math.abs(P.vy) < 0.01;
+      const now = performance.now() / 1000, mv = Math.min(spd, 12) / 12, grounded = P.gr || Math.abs(P.vy) < 0.01;
       let dyaw = tutWrap(P.yaw - gaPrevYaw), dpit = P.pitch - gaPrevPitch; gaPrevYaw = P.yaw; gaPrevPitch = P.pitch;
       const k = Math.min(1, dt * 10); gaSwX += (Math.max(-0.06, Math.min(0.06, -dyaw * 0.9)) - gaSwX) * k; gaSwY += (Math.max(-0.05, Math.min(0.05, dpit * 0.9)) - gaSwY) * k;
       const hip = 1 - ads, bobA = (grounded ? mv : 0) * hip, ph = now * (6 + spd * 0.55);
@@ -1641,12 +1750,18 @@ body.touch #tutcap span { font-size: 0.78rem; }
       const rl = P.reloadT > 0 ? Math.sin((1 - P.reloadT / Math.max(0.01, W.reload)) * Math.PI) : 0;
       swT = Math.max(0, swT - dt); const sw2 = swT > 0 ? Math.pow(swT / 0.35, 2) : 0;
       gun.position.x = 0.22 * hip + gaSwX + Math.cos(ph * 0.5) * 0.012 * bobA + (rl * 0.04);
-      gun.position.y = -0.24 + 0.07 * ads + Math.sin(now * 1.6) * 0.0025 * hip + Math.abs(Math.sin(ph * 0.5)) * 0.016 * bobA - 0.012 * bobA + gaSwY + air - rl * 0.17 - sw2 * 0.28;
+      gun.position.y = -0.24 + 0.07 * ads + Math.sin(now * 1.6) * 0.0025 * hip + Math.abs(Math.sin(ph * 0.5)) * 0.016 * bobA - 0.012 * bobA + gaSwY + air - rl * 0.17 - sw2 * 0.28 - P.slideK * 0.06;
       gun.position.z = -0.5 + 0.06 * ads + P.kick * 0.07 + rl * 0.05;
-      gun.rotation.set(P.kick * 0.12 + rl * 0.55 + sw2 * 0.9 + gaSwY * 1.5, gaSwX * 2.2 + rl * 0.18, -gaSwX * 1.6 + Math.sin(ph * 0.5) * 0.015 * bobA - rl * 0.25);
+      gun.rotation.set(P.kick * 0.12 + rl * 0.55 + sw2 * 0.9 + gaSwY * 1.5, gaSwX * 2.2 + rl * 0.18, -gaSwX * 1.6 + Math.sin(ph * 0.5) * 0.015 * bobA - rl * 0.25 + P.slideK * 0.3);
     }
     knifeG.visible = alive && !mapInfo.pk && isK && throwCd <= 0;
     { const sw = stabT > 0 ? Math.sin((1 - stabT / 0.28) * Math.PI) : 0; knifeG.position.set(0.24 - 0.12 * sw, -0.22 + 0.04 * sw, -0.5 - 0.22 * sw); knifeG.rotation.set(0.3 - 0.5 * sw, 0.15 + 0.5 * sw, -0.2 - 0.6 * sw); }
+    if (pk0 && !$('bhud').hidden) {
+      const sp = Math.hypot(P.vx, P.vz), el = $('bhsp'), t1 = sp.toFixed(1); if (el.textContent !== t1) el.textContent = t1;
+      $('bhfill').style.transform = `scaleX(${Math.min(1, sp / 17)})`; el.style.color = sp > 14 ? '#ffd166' : sp > 11 ? '#ff9ec4' : '#fff';
+      const cb = P.combo || 0, ct = 'BHOP ×' + cb; if ($('bhcombo').textContent !== ct) { $('bhcombo').textContent = ct; $('bhcombo').classList.toggle('hot', cb >= 8); }
+      const sy = P.air > 10 ? Math.round(100 * (P.gn || 0) / P.air) + '%' : '–'; if ($('bhsync').textContent !== 'SYNC ' + sy) $('bhsync').textContent = 'SYNC ' + sy;
+    }
     $('scope').style.display = scoped ? 'block' : 'none'; $('cross').style.opacity = String(1 - ads);
     if (isK) { const lbl = throwCd > 0 ? throwCd.toFixed(1) + 's' : '–'; if ($('mag').textContent !== lbl) $('mag').textContent = lbl; }
     updateKnives(dt); updateFx(dt);
@@ -1678,7 +1793,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
     remotes.forEach((o) => {
       const px = o.x, pz = o.z;
       o.x += (o.tx - o.x) * k; o.y += (o.ty - o.y) * k; o.z += (o.tz - o.z) * k; o.yaw += turn(o.yaw, o.tyaw);
-      o.g.position.set(o.x, o.y, o.z); o.g.rotation.y = o.yaw; animateWalk(o, dt, px, pz, o.y > 0.05);
+      o.sy = (o.sy || 1) + ((o.sl ? 0.62 : 1) - (o.sy || 1)) * Math.min(1, dt * 12); o.g.scale.y = o.sy;
+      o.g.position.set(o.x, o.y, o.z); o.g.rotation.y = o.yaw; animateWalk(o, dt, px, pz, mapInfo.pk ? o.y > 0.05 : o.y - groundAt(o.x, o.z, o.y + 0.1) > 0.3);
     });
     mobs.forEach((o) => {
       const px = o.x, pz = o.z;
@@ -1698,7 +1814,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const pk = runMode === 'pk';
     touchShow(on && state === 'play' && !(tutorial && tutMode === 'demo'));
     ['top', 'hp', 'ammo', 'cross', 'dash', 'streakhud', 'timer'].forEach((id) => { $(id).hidden = !on || pk; });
-    $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('pkhint').hidden = !on || !pk;
+    $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('bhud').hidden = !on || !pk || tutorial; $('pkhint').hidden = !on || !pk;
     $('ks').hidden = !(on && pk && cfg.ks !== false) || tutorial;
     if (!on) { $('bossbar').hidden = true; $('pkdone').hidden = true; }
   }
@@ -1770,6 +1886,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
     if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
     if (e.code === 'KeyE') dash();
+    if (e.code === 'KeyC' && !e.repeat) startSlide();
     if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
   });
   addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -1794,31 +1911,46 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function touchShow(on) {
     if (!TOUCH) return;
     $('touch').hidden = !on; $('touch').classList.toggle('pk', runMode === 'pk'); document.body.classList.toggle('playing', on); document.body.classList.toggle('pkmode', runMode === 'pk');
-    if (!on) { stickEnd(); tbRelease(); }
+    if (!on) { stickEnd(); tbRelease(); if (autoJ) { autoJ = false; fakeKey('Space', false); } $('tauto').classList.remove('lock'); }
+    keys.KeyW = on && runMode === 'pk' && cfg.fwd !== false; $('tfwd').classList.toggle('lock', cfg.fwd !== false);          // parkour on phones: always running forward, you only steer left / right
+    $('tassist').classList.toggle('lock', cfg.assist !== false);
   }
-  const stickEl = $('tstick'), knob = stickEl.firstElementChild;
-  let stickId = null, lookId = null, lookX = 0, lookY = 0;
+  const stickEl = $('tstick'), ring = $('tring'), knob = ring.firstElementChild;
+  let stickId = null, lookId = null, lookX = 0, lookY = 0, scx = 0, scy = 0, SR = 60;
   const held = new Map();                         // touch id -> button element
-  function stickMove(t) {
-    const r = stickEl.getBoundingClientRect(), R = r.width / 2;
-    let dx = t.clientX - (r.left + R), dy = t.clientY - (r.top + R); const l = Math.hypot(dx, dy);
-    if (l > R) { dx *= R / l; dy *= R / l; }
-    knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    const nx = dx / R, ny = dy / R;
-    keys.KeyW = ny < -0.3; keys.KeyS = ny > 0.3; keys.KeyA = nx < -0.3; keys.KeyD = nx > 0.3; keys.ShiftLeft = Math.hypot(nx, ny) > 0.92;   // pushed all the way = run
+  const buzz = (n) => { try { navigator.vibrate && navigator.vibrate(n); } catch (e) { /* not supported */ } };
+  function ringAt() { const zr = stickEl.getBoundingClientRect(); ring.style.bottom = 'auto'; ring.style.left = (scx - SR - zr.left) + 'px'; ring.style.top = (scy - SR - zr.top) + 'px'; }
+  function stickStart(t) {
+    const zr = stickEl.getBoundingClientRect(); SR = ring.offsetWidth / 2;
+    scx = Math.max(zr.left + SR, Math.min(zr.right - SR, t.clientX)); scy = Math.max(zr.top + SR, Math.min(zr.bottom - SR, t.clientY));
+    ring.classList.add('act'); ringAt(); stickMove(t);
   }
-  function stickEnd() { stickId = null; knob.style.transform = ''; keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = keys.ShiftLeft = false; }
+  function stickMove(t) {
+    let dx = t.clientX - scx, dy = t.clientY - scy; const l = Math.hypot(dx, dy);
+    if (l > SR) { const ex = l - SR; scx += dx / l * ex; scy += dy / l * ex; ringAt(); dx = t.clientX - scx; dy = t.clientY - scy; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    const nx = dx / SR, ny = dy / SR, mag = Math.hypot(nx, ny);
+    if (mag < 0.2) { keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = false; keys.ShiftLeft = false; return; }
+    const fy = -ny / mag, fx = nx / mag;                                   // 8-way: each key owns a wide sector so diagonals are easy
+    keys.KeyW = fy > 0.38; keys.KeyS = fy < -0.38; keys.KeyD = fx > 0.38; keys.KeyA = fx < -0.38; keys.ShiftLeft = mag > 0.92;   // pushed to the rim = run
+  }
+  function stickEnd() { stickId = null; knob.style.transform = ''; ring.classList.remove('act'); ring.style.left = ring.style.top = ring.style.bottom = ''; keys.KeyW = keys.KeyS = keys.KeyA = keys.KeyD = keys.ShiftLeft = false; }
   const fakeKey = (code, down) => dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code }));
   const TB = {
     fire:  { down() { mouseDown = true; }, up() { mouseDown = false; } },
     aim:   { down() { if (P.weapon === 'knife') throwKnife(); else rmb = true; }, up() { rmb = false; } },
-    jump:  { down() { fakeKey('Space', true); }, up() { fakeKey('Space', false); } },
-    reload: { tap: 'KeyR' }, dash: { tap: 'KeyE' }, w1: { tap: 'Digit1' }, w2: { tap: 'Digit2' }, w3: { tap: 'Digit3' },
+    jump:  { down() { fakeKey('Space', true); }, up() { if (!autoJ) fakeKey('Space', false); } },
+    left:  { down() { keys.KeyA = true; }, up() { keys.KeyA = false; } },
+    right: { down() { keys.KeyD = true; }, up() { keys.KeyD = false; } },
+    fwd:   { down() { cfg.fwd = cfg.fwd === false; saveCfg(); keys.KeyW = cfg.fwd !== false; $('tfwd').classList.toggle('lock', cfg.fwd !== false); } },
+    auto:  { down() { autoJ = !autoJ; $('tauto').classList.toggle('lock', autoJ); fakeKey('Space', autoJ); } },
+    assist: { down() { cfg.assist = cfg.assist === false; saveCfg(); $('tassist').classList.toggle('lock', cfg.assist !== false); } },
+    reload: { tap: 'KeyR' }, dash: { tap: 'KeyE' }, slide: { tap: 'KeyC' }, w1: { tap: 'Digit1' }, w2: { tap: 'Digit2' }, w3: { tap: 'Digit3' },
     restart: { tap: 'KeyR' }, prev: { tap: 'KeyB' }, next: { tap: 'KeyN' }, board: { tap: 'KeyV' },
     chat: { down() { openChat(); } },
     menu: { down() { if (state !== 'play') return; state = 'pause'; mouseDown = false; rmb = false; showCard('pause'); } }
   };
-  function tbDown(el) { const a = TB[el.dataset.tb]; if (!a) return; el.classList.add('on'); if (a.tap) { fakeKey(a.tap, true); setTimeout(() => fakeKey(a.tap, false), 60); } else a.down(); }
+  function tbDown(el) { const a = TB[el.dataset.tb]; if (!a) return; buzz(el.dataset.tb === 'jump' ? 12 : 7); if (!el.classList.contains('tt')) el.classList.add('on'); if (a.tap) { fakeKey(a.tap, true); setTimeout(() => fakeKey(a.tap, false), 60); } else a.down(); }
   function tbUp(el) { const a = TB[el.dataset.tb]; el.classList.remove('on'); if (a && a.up) a.up(); }
   function tbRelease() { held.forEach((el) => tbUp(el)); held.clear(); lookId = null; }
   if (TOUCH) {
@@ -1829,9 +1961,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
       if (e.cancelable) e.preventDefault();
       for (const t of e.changedTouches) {
         const btn = t.target.closest && t.target.closest('[data-tb]');
-        if (t.target.closest && t.target.closest('#tstick')) { if (stickId === null) { stickId = t.identifier; stickMove(t); } }
+        if (t.target.closest && t.target.closest('#tstick')) { if (stickId === null) { stickId = t.identifier; stickStart(t); } }
         else if (btn) { held.set(t.identifier, btn); tbDown(btn); }
-        else if (lookId === null && t.clientX > innerWidth * 0.3) { lookId = t.identifier; lookX = t.clientX; lookY = t.clientY; }
+        else if (lookId === null) { lookId = t.identifier; lookX = t.clientX; lookY = t.clientY; }
       }
     }, { passive: false });
     addEventListener('touchmove', (e) => {
@@ -1840,8 +1972,10 @@ body.touch #tutcap span { font-size: 0.78rem; }
       for (const t of e.changedTouches) {
         if (t.identifier === stickId) stickMove(t);
         else if (t.identifier === lookId) {
-          const sk = cfg.sens * (1 - (P.weapon === 'sniper' ? 0.7 : 0.45) * ads) * 0.0042;
-          P.yaw -= (t.clientX - lookX) * sk; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - (t.clientY - lookY) * sk));
+          const sk = cfg.sens * (1 - (P.weapon === 'sniper' ? 0.7 : 0.45) * ads) * 0.0042, ddx = t.clientX - lookX, ddy = t.clientY - lookY;
+          const acc = (d) => d * (1 + Math.min(0.9, Math.abs(d) * 0.012));      // slow = precise, quick flick = fast turn
+          P.yaw -= acc(ddx) * sk; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - acc(ddy) * sk));
+          if (Math.abs(ddx) > 0.5) { assistDir = ddx > 0 ? 1 : -1; assistT = 0.16; }
           lookX = t.clientX; lookY = t.clientY;
         }
       }
@@ -1914,7 +2048,7 @@ function tutStep(S, P, gAt, dt, route, plats) {
   ];
   let tutorial = false, tutMode = 'demo', tutS = null, tutAcc = 0, tutPh = -1, tutLast = null, tutYaw = 0, tutSpT = 0, tutVY = 0;
   function tutCaption(i) { if (i === tutPh) return; tutPh = i; $('tutt').textContent = TUT_TEXT[i][0]; $('tutx').textContent = TUT_TEXT[i][1]; }
-  function tutHud() { setHud(true); $('pkhud').hidden = true; $('right').hidden = true; $('chat').hidden = true; $('pkhint').hidden = true; $('tut').hidden = false; $('ks').hidden = true; }
+  function tutHud() { setHud(true); $('pkhud').hidden = true; $('bhud').hidden = true; $('right').hidden = true; $('chat').hidden = true; $('pkhint').hidden = true; $('tut').hidden = false; $('ks').hidden = true; }
   function tutReset(mode) {
     tutMode = mode; P.x = 0; P.z = 0; P.y = 0.05; P.vx = P.vz = P.vy = 0; P.yaw = 0; P.pitch = -0.12; P.dead = false; P.hp = 100; P.fellT = 0.4;
     tutS = tutNew(); tutAcc = 0; tutLast = null; tutYaw = 0; tutVY = 0;
@@ -1981,7 +2115,7 @@ function tutStep(S, P, gAt, dt, route, plats) {
     fovBoost = Math.max(0, fovBoost - dt * 45);
     const zf = P.weapon === 'sniper' ? 0.28 : 0.72;
     spdFov += ((mapInfo.pk && state === 'play' ? Math.min(9, Math.max(0, Math.hypot(P.vx, P.vz) - 9) * 1.1) : 0) - spdFov) * Math.min(1, dt * 4);
-    const fov = (cfg.fov + fovBoost + spdFov) * (1 - (1 - zf) * ads);
+    const fov = (cfg.fov + fovBoost + spdFov + P.slideK * 5) * (1 - (1 - zf) * ads);
     if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

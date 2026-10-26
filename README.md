@@ -129,3 +129,14 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 ## Records
 - The main menu shows a **Records** box for the selected mode: Parkour = Top 10 times of the picked level (Day / Month / All-time) with replays, Deathmatch = Top 10 **total kills** and **best killstreak**.
 - Deathmatch career stats (total kills, best streak) are saved on the server per player name, in the same `scores-v2.json` as the parkour times and replays. Total kills also restore your skin unlocks on any device. Use a persistent disk on Render (`DATA_DIR`) so nothing is lost on redeploy.
+
+## Deathmatch update: ramps, slide, bigger maps, precise hitboxes
+- **Maps:** the 5 Deathmatch maps are much bigger (42 to 50 units from the center) with raised decks you can walk under, ramps, towers, slide hills, a treehouse with rope bridges (Night Woods), an ice pyramid (Frostbite) and more.
+- **Ramps** are real slopes (walkable, you stay glued to them going down, bullets stop on the slope surface).
+- **Slide:** press `C` while running (button SLIDE on phones). A fast, low slide that keeps accelerating down ramps, lowers your view and shrinks your hitbox; jump to leave it with your speed. Short cooldown.
+- **Hitboxes** follow the character model: head sphere, torso, legs (the old one was a single fat cylinder). Headshots deal double damage. The server compensates for latency: it rewinds players to what the shooter saw (ping measured automatically, max 350 ms).
+
+## Mobile controls v2 + Bhop Pro style (parkour)
+- Deathmatch: floating joystick (appears under your thumb, follows it, 8-way, run at the rim), look swipe with flick acceleration, haptics.
+- Parkour on phones: ◀ ▶ arrow buttons replace the joystick (running forward, with an FWD button to toggle auto-run), big JUMP (hold = auto bhop), **AUTO** (locks jump held), **ASSIST** (swiping to turn in the air also strafes that way, which is what builds speed).
+- Bhop HUD (all devices, parkour): speed bar, bhop combo and strafe sync %.
