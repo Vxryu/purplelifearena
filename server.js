@@ -25,6 +25,17 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     res.end(page); return;
   }
+  if (req.url.startsWith('/api/')) {
+    // read-only data for the menu: boards, replays and map of a parkour level (no connection needed)
+    const u = new URL(req.url, 'http://x'), lv = Math.max(1, Math.min(PK_LEVELS, Math.floor(+u.searchParams.get('lv')) || 1));
+    const out = (o, raw) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(raw || JSON.stringify(o)); };
+    if (u.pathname === '/api/lb') { out(board(lv)); return; }
+    if (u.pathname === '/api/map') { out(null, pkRoom(lv).map.wire); return; }
+    if (u.pathname === '/api/rp') {
+      const sc = levelScores(lv), p = u.searchParams.get('p'), list = p === 'd' ? sc.day.rows : p === 'm' ? sc.month.rows : sc.all, row = list[Math.max(0, Math.min(9, Math.floor(+u.searchParams.get('i')) || 0))];
+      out(row && row.r ? { t: 'rpd', lv, n: row.n, time: row.t, f: row.r } : { t: 'rpd', lv, none: 1 }); return;
+    }
+  }
   res.writeHead(404); res.end('Not found');
 });
 const wss = new WebSocketServer({ server, maxPayload: 2048 });

@@ -423,7 +423,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       </details>
     </div>
     <div id="rpbox" hidden>
-      <div class="rph"><b>Replays</b><span id="rptabs"><button type="button" data-p="d">Day</button><button type="button" data-p="m">Month</button><button type="button" data-p="a" class="on">All-time</button></span></div>
+      <div class="rph"><b id="rptitle">Replays</b><span id="rptabs"><button type="button" data-p="d">Day</button><button type="button" data-p="m">Month</button><button type="button" data-p="a" class="on">All-time</button></span></div>
       <div id="rplist"></div>
       <button type="button" id="rpstop" hidden>Stop replay</button>
     </div>
@@ -568,6 +568,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     $('pklv').textContent = 'Level ' + L + ' - ' + PK_NAMES[L - 1];
     $('pkpb').textContent = pkPB[L] ? 'Your best: ' + fmtT(pkPB[L]) : 'No time yet';
     $('pkprev').disabled = L <= 1; $('pknext').disabled = L >= PK_N;
+    if (state === 'menu') rpRender();
   }
   $('pkprev').addEventListener('click', () => { cfg.pkLevel--; saveCfg(); renderPick(); });
   $('pknext').addEventListener('click', () => { cfg.pkLevel++; saveCfg(); renderPick(); });
@@ -1338,6 +1339,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     } else if (m.t === 'lb') {
       lbCache[m.lv] = m.b;
       if (mapInfo.pk && mapInfo.pk.lv === m.lv) { refreshBoards(); pkHud(); }
+      if (!$('rpbox').hidden) rpRender();
     } else if (m.t === 'full') {
       $('play').disabled = false; setMsg('This room is full. Try again in a moment.');
     } else if (m.t === 's') {
@@ -1434,29 +1436,50 @@ body.touch #tutcap span { font-size: 0.78rem; }
   // ---------- HUD helpers ----------
   // ---------- replays of the top 10 (first-person playback of the recorded run) ----------
   let replay = null, rpPer = 'a', rpSaved = null, rpHint = '';
-  function rpRender(pause) {
-    const box = $('rpbox'), pk = mapInfo.pk, show = !!(pause && pk && !tutorial && state === 'pause' && ws);
-    box.hidden = !show; if (!show) return;
-    $('rpstop').hidden = !replay;
+  let rpOffline = false, rpFetchAt = {};
+  function rpLevel() {
+    if (tutorial) return 0;
+    if (state === 'menu' && cfg.mode === 'pk') return cfg.pkLevel;
+    if (state === 'pause' && mapInfo.pk && (ws || rpOffline)) return mapInfo.pk.lv;
+    return 0;
+  }
+  function rpFetch(lv) {
+    if (performance.now() - (rpFetchAt[lv] || -1e9) < 8000) return; rpFetchAt[lv] = performance.now();
+    fetch('/api/lb?lv=' + lv).then((r) => r.json()).then((b) => { lbCache[lv] = b; rpRender(); }).catch(() => {});
+  }
+  function rpRender() {
+    const box = $('rpbox'), lv = rpLevel(); box.hidden = !lv; if (!lv) return;
+    if (state === 'menu') rpFetch(lv);
+    $('rpstop').hidden = !replay; $('rptitle').textContent = 'Replays \u00b7 Level ' + lv;
     document.querySelectorAll('#rptabs button').forEach((b) => b.classList.toggle('on', b.dataset.p === rpPer));
-    const b = lbCache[pk.lv] || {}, rows = (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : b.a) || [], list = $('rplist'); list.innerHTML = '';
-    if (!rows.length) { list.innerHTML = '<div class="rpe">No times yet on this board.</div>'; return; }
+    const b = lbCache[lv] || {}, rows = (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : b.a) || [], list = $('rplist'); list.innerHTML = '';
+    if (!rows.length) { list.innerHTML = '<div class="rpe">' + (lbCache[lv] ? 'No times yet on this board.' : 'Loading...') + '</div>'; return; }
     rows.forEach((r, i) => {
       const d = document.createElement('div'); d.className = 'rpr';
       d.innerHTML = `<b>#${i + 1}</b><span>${esc(r[0])}</span><span>${fmtT(r[1])}</span>`;
       const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = '\u25B6'; bt.disabled = !r[2]; bt.title = r[2] ? 'Watch replay' : 'No replay recorded';
-      bt.addEventListener('click', () => { wsSend({ t: 'rp', lv: pk.lv, p: rpPer, i }); bt.disabled = true; setTimeout(() => { bt.disabled = !r[2]; }, 600); });
+      bt.addEventListener('click', () => { loadReplay(lv, rpPer, i); bt.disabled = true; setTimeout(() => { bt.disabled = !r[2]; }, 900); });
       d.appendChild(bt); list.appendChild(d);
     });
   }
-  document.querySelectorAll('#rptabs button').forEach((b) => b.addEventListener('click', () => { rpPer = b.dataset.p; rpRender(true); }));
-  $('rpstop').addEventListener('click', () => { endReplay(); rpRender(true); });
+  // online (in pause) the server answers over the socket; from the menu we fetch the data over http and build the map locally
+  function loadReplay(lv, p, i) {
+    if (ws && state === 'pause') { wsSend({ t: 'rp', lv, p, i }); return; }
+    Promise.all([fetch(`/api/rp?lv=${lv}&p=${p}&i=${i}`).then((r) => r.json()), (rpOffline && mapInfo.pk && mapInfo.pk.lv === lv) ? null : fetch('/api/map?lv=' + lv).then((r) => r.json())]).then(([rp, mp]) => {
+      if (rp.none) { banner('No replay for this run', 1500); return; }
+      if (mp) { runMode = 'pk'; rpOffline = true; buildWorld(mp); pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; }
+      startReplay(rp);
+    }).catch(() => banner('Could not load the replay', 1500));
+  }
+  document.querySelectorAll('#rptabs button').forEach((b) => b.addEventListener('click', () => { rpPer = b.dataset.p; rpRender(); }));
+  $('rpstop').addEventListener('click', () => { endReplay(); if (rpOffline) { leaveOfflineReplay(); state = 'menu'; showCard('menu'); } else rpRender(); });
   function startReplay(m) {
     if (!mapInfo.pk || mapInfo.pk.lv !== m.lv) return;
     if (m.none || !m.f || m.f.length < 12) { banner('No replay for this run', 1500); return; }
-    if (!replay) rpSaved = { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, vx: P.vx, vy: P.vy, vz: P.vz };
+    const replay0 = !!replay;
+    if (!replay && !rpSaved) rpSaved = { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, vx: P.vx, vy: P.vy, vz: P.vz };
     replay = { f: m.f, n: m.n, time: m.time, t: 0, i: 0, slow: false, end: 0 };
-    rpHint = $('pkhint').textContent; $('pkhint').textContent = 'R: exit replay \u00b7 Q: slow motion';
+    if (!replay0) rpHint = $('pkhint').textContent; $('pkhint').textContent = 'R: exit replay \u00b7 Q: slow motion';
     $('pkname').textContent = 'Replay \u00b7 ' + m.n; $('pkdone').hidden = true; $('ks').hidden = true;
     state = 'play'; $('overlay').hidden = true; setHud(true); lock(); banner('Replay: ' + m.n + ' - ' + fmtT(m.time), 2200);
   }
@@ -1669,7 +1692,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
     $('overlay').hidden = false; setHud(mode === 'pause' || mode === 'over');
     const over = mode === 'over', pause = mode === 'pause', menu = mode === 'menu';
     $('title').innerHTML = over ? (runMode === 'dm' ? 'Match <em>over</em>' : 'Run <em>over</em>') : pause ? 'Paused' : 'Purple <em>Arena</em>';
-    rpRender(pause);
+    if (menu && rpOffline) leaveOfflineReplay();
+    rpRender();
     $('modes').hidden = !menu; $('setup').hidden = !menu; $('leave').hidden = menu;
     if (over && board) {
       setMsg(endMsg || (board[0] ? `${board[0][1]} wins with ${board[0][2]} kills.` : 'Match over.'));
@@ -1727,7 +1751,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (e.code === 'KeyV' && !e.repeat && state === 'play' && mapInfo.pk) nextPeriod(true);
     if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
-    if (replay && state === 'play') { if (e.code === 'KeyR') endReplay(); else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
+    if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
     if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
     if (e.code === 'KeyE') dash();
@@ -1947,12 +1971,14 @@ function tutStep(S, P, gAt, dt, route, plats) {
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
-  (function () {
+  function buildMenuWorld() {
     let a = 7; const r = () => { a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }, b = [];
     for (let i = 0; i < 80; i++) { const x = (r() * 2 - 1) * 55, z = (r() * 2 - 1) * 55; if (Math.hypot(x, z) < 9) continue; b.push(['tree', x, z, 0.9, 0.9, 9, 0, 0]); }
     for (let i = 0; i < 10; i++) { const x = (r() * 2 - 1) * 40, z = (r() * 2 - 1) * 40; if (Math.hypot(x, z) < 6) continue; b.push(['rock', x, z, 2, 1.5, 0.9, 0, 0]); }
     buildWorld({ t: 'map', id: 'menu', name: '', th: 'forest', half: 60, b, pk: null });
-  })();
+  }
+  buildMenuWorld();
+  function leaveOfflineReplay() { endReplay(); rpOffline = false; runMode = cfg.mode; buildMenuWorld(); }
   buildSwatches(); setWeaponLook(wallet.equipped); applySkin(cfg.skin); $('coinhud').textContent = wallet.coins;
   showCard('menu');
   requestAnimationFrame(frame);
