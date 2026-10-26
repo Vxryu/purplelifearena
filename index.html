@@ -231,6 +231,34 @@ body.touch #ammo b { font-size: 1.5rem; }
 body.touch #chat { left: auto; right: 22vh; top: 3vh; bottom: auto; width: min(300px, 32vw); }
 body.touch #pkdone { top: 12%; }
 body.touch #banner { font-size: 1.3rem; top: 14%; }
+
+/* ---------- parkour tutorial ---------- */
+.card button.ghost { background: transparent; border: 1px solid var(--accent); color: var(--accent); margin-bottom: 12px; }
+#tut { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
+#tut[hidden] { display: none; }
+#tutcap { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(560px, 90vw); text-align: center; padding: 12px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+#tutcap b { display: block; font-family: var(--display); font-size: 1.05rem; color: var(--accent); margin-bottom: 4px; }
+#tutcap span { font-size: 0.9rem; line-height: 1.4; }
+#tutkeys { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 18px; padding: 12px 16px; border-radius: 14px; background: rgba(14,8,26,0.72); border: 1px solid var(--line); }
+.tk { display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 10px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08); font: 800 1rem var(--body); margin: 2px; transition: background 0.05s; }
+.tk.on { background: var(--accent); color: var(--accent-ink); border-color: #fff; transform: translateY(2px); }
+#tkSp { min-width: 150px; }
+.kb { display: grid; justify-items: center; }
+.kb div { display: flex; }
+.tmouse { display: flex; align-items: center; gap: 4px; font: 700 0.7rem var(--body); letter-spacing: 0.1em; color: var(--muted); }
+.tmouse .tk { min-width: 36px; }
+#tutspd { min-width: 120px; text-align: center; }
+#tutspd small { display: block; font-size: 0.66rem; letter-spacing: 0.14em; color: var(--muted); }
+#tutspd b { font-family: var(--display); font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+#tutspd div { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.15); overflow: hidden; margin-top: 4px; }
+#tutspd i { display: block; height: 100%; width: 0; background: #7dffb0; }
+#tutend { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; gap: 8px; width: min(300px, 80vw); pointer-events: auto; }
+#tutend[hidden] { display: none; }
+#tutend button { padding: 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: 700 1rem var(--body); cursor: pointer; }
+#tutend button.sec { background: rgba(30,16,56,0.85); color: var(--ink); border: 1px solid var(--line); }
+body.touch #tutkeys { transform: translateX(-50%) scale(0.8); bottom: 6px; transform-origin: bottom center; }
+body.touch #tutcap { top: 6px; padding: 8px 12px; }
+body.touch #tutcap span { font-size: 0.78rem; }
 </style>
 
 <canvas id="view"></canvas>
@@ -263,6 +291,16 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
   <button class="tb dmonly" id="tfire" data-tb="fire">FIRE</button>
 </div>
 <div id="rotate"><div><b>⟳</b>Turn your phone sideways to play</div></div>
+<div id="tut" hidden>
+  <div id="tutcap"><b id="tutt"></b><span id="tutx"></span></div>
+  <div id="tutkeys">
+    <div class="tmouse"><span class="tk" id="tkL">&#9664;</span>MOUSE<span class="tk" id="tkR">&#9654;</span></div>
+    <div class="kb"><div><span class="tk" id="tkW">W</span></div><div><span class="tk" id="tkA">A</span><span class="tk" id="tkS">S</span><span class="tk" id="tkD">D</span></div></div>
+    <span class="tk" id="tkSp">SPACE</span>
+    <div id="tutspd"><small>SPEED</small><b id="tutsv">0</b><div><i id="tutsb"></i></div></div>
+  </div>
+  <div id="tutend" hidden><button id="tutprac" type="button">Try it yourself</button><button id="tutagain" class="sec" type="button">Watch again</button><button id="tutexit" class="sec" type="button">Back to menu</button></div>
+</div>
 <div class="hud" id="vig"></div>
 <div class="hud" id="banner"></div>
 <div class="hud" id="coinpop"></div>
@@ -279,6 +317,7 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
       <button class="mode" type="button" role="radio" data-mode="pk"><b>Parkour</b>10 levels in 10 biomes, bunny hop, best times per level.</button>
     </div>
     <div id="pkpick" hidden><button id="pkprev" type="button" aria-label="Previous level">&lsaquo;</button><div><span id="pklv">Level 1</span><small id="pkpb"></small></div><button id="pknext" type="button" aria-label="Next level">&rsaquo;</button></div>
+    <button id="tutbtn" class="ghost" type="button" hidden>&#9654; Learn to bunny hop (tutorial)</button>
     <p id="msg"></p>
     <div id="setup">
       <input type="text" id="name" maxlength="14" placeholder="Your name" autocomplete="off" aria-label="Your name">
@@ -443,7 +482,7 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
   }
   document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); }));
   function renderPick() {
-    $('pkpick').hidden = cfg.mode !== 'pk';
+    $('pkpick').hidden = cfg.mode !== 'pk'; $('tutbtn').hidden = cfg.mode !== 'pk';
     cfg.pkLevel = Math.max(1, Math.min(pkUnlocked, cfg.pkLevel || 1));
     const L = cfg.pkLevel;
     $('pklv').textContent = 'Level ' + L + ' - ' + PK_NAMES[L - 1];
@@ -1357,7 +1396,7 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
     const alive = !P.dead;
     P.dashCd = Math.max(0, P.dashCd - dt); P.fellT = Math.max(0, P.fellT - dt);
     $('dashfill').style.transform = `scaleX(${1 - P.dashCd / 2.2})`; $('dash').classList.toggle('ready', P.dashCd <= 0); $('tdash').classList.toggle('cd', P.dashCd > 0);
-    move(dt, alive);
+    if (tutorial) tutUpdate(dt, alive); else move(dt, alive);
     const spd = Math.hypot(P.vx, P.vz), W = WEAPONS[P.weapon];
     P.fireT = Math.max(0, P.fireT - dt);
     if (P.reloadT > 0) { P.reloadT -= dt; if (P.reloadT <= 0) { P.mag = W.mag; $('ammolabel').textContent = 'Ammo'; updateAmmo(); } }
@@ -1381,7 +1420,7 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
     flash.visible = (flashT -= dt) > 0; muzzleLight.intensity = flash.visible ? 2.2 : 0;
     const pk = mapInfo.pk;
     if (pk) {
-      if (alive && P.fellT <= 0 && P.y < pk.kill + 1.2) { P.fellT = 0.7; wsSend({ t: 'fell' }); beep(120, 0.3, 'sawtooth', 0.05, 0.3); }
+      if (alive && P.fellT <= 0 && P.y < pk.kill + 1.2) { P.fellT = 0.7; beep(120, 0.3, 'sawtooth', 0.05, 0.3); if (tutorial) tutReset(tutMode); else wsSend({ t: 'fell' }); }
       if (pkT0 && !pkDone) $('pktime').textContent = fmtT((performance.now() - pkT0) / 1000);
       else if (pkDone) $('pktime').textContent = fmtT(pkTime); else $('pktime').textContent = '0:00.00';
     }
@@ -1423,12 +1462,13 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
   // ---------- flow ----------
   function setHud(on) {
     const pk = runMode === 'pk';
-    touchShow(on && state === 'play');
+    touchShow(on && state === 'play' && !(tutorial && tutMode === 'demo'));
     ['top', 'hp', 'ammo', 'cross', 'dash', 'streakhud', 'timer'].forEach((id) => { $(id).hidden = !on || pk; });
     $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('pkhint').hidden = !on || !pk;
     if (!on) { $('bossbar').hidden = true; $('pkdone').hidden = true; }
   }
   function showCard(mode, board, endMsg) {
+    if (mode === 'menu') { tutorial = false; $('tut').hidden = true; }
     $('overlay').hidden = false; setHud(mode === 'pause' || mode === 'over');
     const over = mode === 'over', pause = mode === 'pause', menu = mode === 'menu';
     $('title').innerHTML = over ? (runMode === 'dm' ? 'Match <em>over</em>' : 'Run <em>over</em>') : pause ? 'Paused' : 'Purple <em>Arena</em>';
@@ -1457,7 +1497,7 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
   }
   document.addEventListener('pointerlockchange', () => {
     locked = document.pointerLockElement === canvas;
-    if (locked) drag = false; else if (state === 'play' && !chatOpen) { state = 'pause'; showCard('pause'); }
+    if (locked) drag = false; else if (state === 'play' && !chatOpen && !(tutorial && tutMode === 'done')) { state = 'pause'; showCard('pause'); }
   });
   $('play').addEventListener('click', () => {
     if (state === 'pause') startPlaying();
@@ -1478,6 +1518,12 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
     if (e.target.tagName === 'INPUT') return;
     if (e.ctrlKey && state === 'play') e.preventDefault();
     keys[e.code] = true;
+    if (tutorial) {
+      if (e.code === 'KeyR' && !e.repeat) { if (tutMode === 'done') { tutReset('free'); lock(); } else tutReset(tutMode); }
+      if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
+      if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+      return;
+    }
     if ((e.code === 'Enter' || e.code === 'KeyT') && state === 'play' && !e.repeat) { e.preventDefault(); openChat(); return; }
     if (!e.repeat && e.code.startsWith('Digit') && '123'.includes(e.code[5])) setWeapon(SLOTS[+e.code[5] - 1]);
     if (e.code === 'KeyV' && !e.repeat && state === 'play' && mapInfo.pk) nextPeriod(true);
@@ -1490,7 +1536,7 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
   });
   addEventListener('keyup', (e) => { keys[e.code] = false; });
   addEventListener('mousemove', (e) => {
-    if (state !== 'play') return;
+    if (state !== 'play' || (tutorial && tutMode === 'demo')) return;
     if (locked || (drag && e.buttons & 2)) {
       const sk = cfg.sens * (1 - (P.weapon === 'sniper' ? 0.7 : 0.45) * ads);
       P.yaw -= e.movementX * 0.0022 * sk; P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch - e.movementY * 0.0022 * sk));
@@ -1573,6 +1619,115 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
     addEventListener('contextmenu', (e) => e.preventDefault());
     chatIn.addEventListener('blur', () => { if (chatOpen) closeChat(false); });
   }
+
+
+  // ---------- parkour tutorial ----------
+  // A bot plays a short course in first person with the game's own physics (fixed 60 Hz steps, so every run is identical)
+  // while the keys it presses light up. Afterwards the player can try the same course.
+// ===== TUTORIAL BOT (shared by the client and the Node tests) =====
+function tutNew() { return { t: 0, wp: 0, cur: -1, hops: 0, lastOnG: true }; }
+function tutWrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
+// returns the keys the "player" holds; also turns P.yaw like a mouse would
+function tutStep(S, P, gAt, dt, route, plats) {
+  S.t += dt;
+  const g = gAt(P.x, P.z, P.y), onG = P.y <= g + 0.001 && P.vy <= 0;
+  const out = { W: false, A: false, D: false, Space: false, turn: 0, wp: S.wp, onG };
+  if (S.wp >= route.length) { S.done = true; return out; }
+  const wp = route[S.wp], dx = wp.x - P.x, dz = wp.z - P.z, dist = Math.hypot(dx, dz);
+  if (dist < wp.r) { S.wp++; return tutStep(S, P, gAt, 0, route, plats); }
+  const desired = Math.atan2(-dx, -dz), sp = Math.hypot(P.vx, P.vz);
+  let goal = desired, rate = 4.5;
+  if (S.t < 2.6) { goal = Math.sin(S.t * 2.4) * 0.55; rate = 6; }                  // look around first
+  else {
+    out.W = onG || !wp.strafe;
+    if (!onG && wp.strafe && sp > 3) {
+      goal = Math.atan2(-P.vx, -P.vz); rate = 9;
+      const side = dx * Math.cos(P.yaw) + dz * -Math.sin(P.yaw);
+      if (side > 0.5) out.D = true; else if (side < -0.5) out.A = true;
+    }
+  }
+  const dy = tutWrap(goal - P.yaw), step = Math.max(-rate * dt, Math.min(rate * dt, dy));
+  P.yaw += step; out.turn = dt > 0 ? step / dt : 0;
+  if (S.t >= 2.6 && onG) {
+    if (wp.hop) out.Space = true;
+    else if (wp.jump) {                    // tap jump when the edge of the platform is right under the feet
+      const ux = dx / dist, uz = dz / dist; let tex = 1e9;
+      for (const c of plats) if (Math.abs(P.x - c.x) <= c.w / 2 && Math.abs(P.z - c.z) <= c.d / 2 && Math.abs(g - c.top) < 0.05) {
+        const px = P.x - c.x, pz = P.z - c.z, hx = c.w / 2, hz = c.d / 2;
+        const tx = ux > 0 ? (hx - px) / ux : ux < 0 ? (-hx - px) / ux : 1e9, tz = uz > 0 ? (hz - pz) / uz : uz < 0 ? (-hz - pz) / uz : 1e9;
+        tex = Math.min(tex, Math.min(tx, tz));
+      }
+      if (tex < 0.18 + sp * 0.01) out.Space = true;
+    }
+  }
+  return out;
+}
+
+  const TUT_PLATS = [[0,0,7,7,"start"],[0,-10.5,6,14,"plat"],[0,-23,6,6,"plat"],[0,-37.27,20,17.53,"plat"],[0,-54.24,20,10.41,"plat"],[0,-68.28,20,10.47,"plat"],[0,-83.21,20,10.58,"plat"],[0,-99.29,20,11.18,"plat"],[0,-116.53,20,11.31,"plat"],[0,-147.69,20,36.62,"finish"]].map(([x, z, w, d, kind]) => ({ x, z, w, d, top: 0, kind }));
+  const TUT_ROUTE = [[0,-9,1.5,0,0],[0,-22.5,1.5,2,1],[0,-31,2,2,1],[6,-42,4,5,2],[-6,-56,4,5,2],[6,-70,4,5,3],[-6,-84,4,5,3],[6,-98,4,5,3],[-6,-112,4,5,3],[6,-126,4,5,4],[-6,-140,4,5,4],[0,-156,4,0,5]].map(([x, z, r, f, ph]) => ({ x, z, r, hop: !!(f & 1), jump: !!(f & 2), strafe: !!(f & 4), ph }));
+  const TUT_TEXT = [
+    ['1 \u00b7 Walk', 'Hold W to run forward. Move the mouse to look around.'],
+    ['2 \u00b7 Jump', 'Press SPACE right at the edge of a platform to jump over a gap.'],
+    ['3 \u00b7 Bunny hop', 'Hold SPACE. You jump again the instant you land, so the ground never slows you down.'],
+    ['4 \u00b7 Air strafe', 'In the air, hold D (or A) and turn the mouse the same way, smoothly. Every hop makes you faster.'],
+    ['5 \u00b7 Speed = distance', 'This gap is too wide for a normal jump. Flying at bunny-hop speed, you clear it.'],
+    ['Nice!', 'Now it is your turn.'],
+    ['Your turn', 'Hold SPACE to hop. In the air hold D or A and turn the mouse that way. R restarts the course, Esc opens the menu.']
+  ];
+  let tutorial = false, tutMode = 'demo', tutS = null, tutAcc = 0, tutPh = -1, tutLast = null, tutYaw = 0, tutSpT = 0;
+  function tutCaption(i) { if (i === tutPh) return; tutPh = i; $('tutt').textContent = TUT_TEXT[i][0]; $('tutx').textContent = TUT_TEXT[i][1]; }
+  function tutHud() { setHud(true); $('pkhud').hidden = true; $('right').hidden = true; $('chat').hidden = true; $('pkhint').hidden = true; $('tut').hidden = false; }
+  function tutReset(mode) {
+    tutMode = mode; P.x = 0; P.z = 0; P.y = 0.05; P.vx = P.vz = P.vy = 0; P.yaw = 0; P.pitch = -0.12; P.dead = false; P.hp = 100; P.fellT = 0.4;
+    tutS = tutNew(); tutAcc = 0; tutLast = null; tutYaw = 0;
+    for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']) keys[k] = false;
+    $('tutend').hidden = mode !== 'done';
+    tutCaption(mode === 'demo' ? 0 : mode === 'done' ? 5 : 6);
+    tutHud();
+  }
+  function startTutorial() {
+    runMode = 'pk'; tutorial = true;
+    buildWorld({ t: 'map', id: 'tutorial', name: 'Tutorial', th: 'desert', half: 2000,
+      b: TUT_PLATS.map((p) => [p.kind, p.x, p.z, p.w, p.d, 0.7, 13213798, -0.7]),
+      pk: { lv: 0, n: 10, start: [0, 0, 0], cps: [], fin: [0, 0, -150], kill: -14, pathLen: 160, bounds: [-40, 40, -210, 30, -1, 0] } });
+    if (boardStart) boardStart.mesh.visible = false; if (boardFin) boardFin.mesh.visible = false;
+    pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true;
+    state = 'play'; $('overlay').hidden = true; sleeve.color.set(cfg.color);
+    tutPh = -1; tutReset('demo'); lock();
+    if (TOUCH) { try { const de = document.documentElement, p = !document.fullscreenElement && de.requestFullscreen && de.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (e) {} }
+  }
+  function tutFinish() {
+    tutMode = 'done'; for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']) keys[k] = false;
+    $('tutend').hidden = false; tutCaption(5); tutHud(); if (document.exitPointerLock) document.exitPointerLock();
+  }
+  function tutUpdate(dt, alive) {
+    let o = null;
+    if (tutMode === 'demo') {
+      tutAcc = Math.min(tutAcc + dt, 0.1);
+      while (tutAcc >= 1 / 60) {
+        tutAcc -= 1 / 60;
+        o = tutStep(tutS, P, groundAt, 1 / 60, TUT_ROUTE, TUT_PLATS);
+        keys.KeyW = o.W; keys.KeyA = o.A; keys.KeyD = o.D; keys.KeyS = false; keys.Space = o.Space;
+        move(1 / 60, true);
+        if (tutS.done) { tutFinish(); break; }
+      }
+      P.pitch += (-0.14 - P.pitch) * Math.min(1, dt * 3);
+      if (o) { tutLast = o; if (o.Space) tutSpT = 0.25; }
+      tutSpT = Math.max(0, tutSpT - dt);
+      if (tutMode === 'demo') tutCaption(TUT_ROUTE[Math.min(tutS.wp, TUT_ROUTE.length - 1)].ph);
+    } else move(dt, alive);
+    // light up the keys: the bot's while it plays, the player's own afterwards
+    const k = tutMode === 'demo' ? Object.assign({}, tutLast || {}, { Space: tutSpT > 0 || !!(tutS.t > 2.6 && TUT_ROUTE[Math.min(tutS.wp, TUT_ROUTE.length - 1)].hop && !tutS.done) }) : { W: keys.KeyW, A: keys.KeyA, S: keys.KeyS, D: keys.KeyD, Space: keys.Space };
+    const yr = dt > 0 ? (P.yaw - tutYaw) / dt : 0; tutYaw = P.yaw;
+    const on = (id, v) => $(id).classList.toggle('on', !!v);
+    on('tkW', k.W); on('tkA', k.A); on('tkS', k.S); on('tkD', k.D); on('tkSp', k.Space); on('tkL', yr > 0.3); on('tkR', yr < -0.3);
+    const sp = Math.hypot(P.vx, P.vz);
+    $('tutsv').textContent = sp.toFixed(1); $('tutsb').style.width = Math.min(100, sp / 17 * 100) + '%';
+  }
+  $('tutbtn').addEventListener('click', startTutorial);
+  $('tutprac').addEventListener('click', () => { tutReset('free'); lock(); });
+  $('tutagain').addEventListener('click', () => { tutReset('demo'); lock(); });
+  $('tutexit').addEventListener('click', () => { tutorial = false; $('tut').hidden = true; state = 'menu'; showCard('menu'); });
 
   // ---------- loop ----------
   let prev = performance.now();

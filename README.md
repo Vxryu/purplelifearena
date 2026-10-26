@@ -28,6 +28,15 @@ FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deu
 
 > Sur certains navigateurs `Ctrl+W` ferme l'onglet : appuie sur `W` avant `Ctrl`, ou joue en plein écran (`F`).
 
+## Téléphone et tablette
+
+Les commandes tactiles apparaissent automatiquement sur mobile (écran tactile) ; sur PC rien ne change. Joue en **paysage** : le jeu se met en plein écran et un message te demande de tourner le téléphone si besoin.
+
+- **Joystick à gauche** : se déplacer (à fond = courir). **Glisser sur la moitié droite** : regarder autour.
+- **Deathmatch** : `FIRE`, `JUMP`, `AIM` (lancer quand le couteau est en main), `RELOAD`, `DASH`, choix de l'arme (Rifle / Sniper / Knife) et `Chat`.
+- **Parkour** : gros bouton `JUMP` (maintenir pour le bhop), `Restart`, `◀ Level ▶`, classement Day / Month / All et `Chat`.
+- `☰` ouvre le menu / la pause.
+
 ## Deathmatch
 
 - **Maps** : Arena, Dust Bowl, Frostbite, Night Woods, Reactor. La suivante est annoncée sur l'écran de fin de partie.
@@ -53,6 +62,7 @@ FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deu
 - La difficulté monte du niveau 1 au 10. Pas de checkpoints : une chute te ramène au départ.
 - Le **chrono démarre quand tu quittes la plateforme verte de départ** et s'arrête sur la plateforme d'arrivée.
 - **Classements** Daily / Monthly / All-time par niveau (jour et mois à l'heure de Paris), affichés sur un panneau au départ et sur un panneau flottant à l'arrivée.
+- **Tutoriel bunny hop** : dans le menu, mode Parkour, bouton « Learn to bunny hop ». Un bot joue en vue première personne sur une map à part (marcher, sauter, enchaîner les sauts, strafe en l'air, franchir un grand trou) pendant que les touches qu'il utilise s'allument (W A S D, Espace, souris) avec un compteur de vitesse. Ensuite tu peux essayer toi-même (`R` pour recommencer). Le tutoriel est local : il fonctionne sans serveur de jeu et n'enregistre aucun temps.
 - Les joueurs du **top 10** ont leur rang (`#1` à `#10`) au-dessus de la tête, et le meilleur temps affiche **WORLD RECORD HOLDER**.
 
 ## Lancer en local
