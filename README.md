@@ -121,3 +121,7 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Menu redesigned: split layout, animated backdrop, mode cards, bigger Play button, restyled skins and settings.
 - Cinematic rendering: filmic tone mapping, vignette, ambient particles per biome (dust, fireflies, embers, snow, bubbles), speed FOV in parkour, landing dip.
 - First-person weapon: more detailed model (rail, optic, handguard, glowing strips colored by skin) and new animations (sway, breathing, walk bob, reload, weapon raise, jump/land).
+
+## Replays and clean platforms
+- Parkour platforms no longer have small decorative objects (rocks, grass tufts, crystals...) on top of them.
+- **Top-10 replays:** the server records every run (position and view, 20 times per second) and keeps the replay of the Top 10 of each level's Daily, Monthly and All-time boards. In Parkour press `Esc` (pause), open **Replays**, pick a board tab and press the play button next to a time to watch that run in first person. `Q` toggles slow motion, `R` exits the replay. Runs set before this update have no replay. Replays are stored in `scores-v2.json` (grows a little; set `DATA_DIR` to keep it on a persistent disk).

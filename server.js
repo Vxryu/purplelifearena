@@ -331,22 +331,28 @@ function levelScores(lv) {
   return s;
 }
 function board(lv) {
-  const s = levelScores(lv), f = (l) => l.slice(0, 10).map((r) => [r.n, r.t]);
+  const s = levelScores(lv), f = (l) => l.slice(0, 10).map((r) => [r.n, r.t, r.r ? 1 : 0]);
   return { d: f(s.day.rows), m: f(s.month.rows), a: f(s.all) };
 }
-function addTime(list, name, time) {
+function addTime(list, name, time, rec) {
   const key = name.toLowerCase(), old = list.find((r) => r.n.toLowerCase() === key);
   let better = false;
-  if (!old) { list.push({ n: name, t: time }); better = true; } else if (time < old.t) { old.t = time; old.n = name; better = true; }
+  if (!old) { list.push({ n: name, t: time, r: rec || undefined }); better = true; } else if (time < old.t) { old.t = time; old.n = name; old.r = rec || undefined; better = true; }
   list.sort((a, b) => a.t - b.t); if (list.length > 50) list.length = 50;
+  for (let i = 10; i < list.length; i++) if (list[i].r) delete list[i].r;      // only the top 10 keep their replay
   return better;
 }
 const rankOf = (list, name) => list.findIndex((r) => r.n.toLowerCase() === name.toLowerCase()) + 1;
-function recordTime(lv, name, time) {
+function recordTime(lv, name, time, rec) {
   const s = levelScores(lv);
-  const pb = addTime(s.all, name, time), d = addTime(s.day.rows, name, time), m = addTime(s.month.rows, name, time);
+  const pb = addTime(s.all, name, time, rec), d = addTime(s.day.rows, name, time, rec), m = addTime(s.month.rows, name, time, rec);
   if (pb || d || m) saveScores();
   return { pb, changed: pb || d || m, rank: rankOf(s.all, name), rd: rankOf(s.day.rows, name), rm: rankOf(s.month.rows, name) };
+}
+function flatRec(rec) {
+  if (!rec || rec.length < 10 || rec.length >= 4000) return undefined;
+  const out = []; for (const r of rec) out.push(r[0], Math.round(r[1] * 20), Math.round(r[2] * 20), Math.round(r[3] * 20), Math.round(r[4] * 100), Math.round(r[5] * 100));
+  return out;
 }
 function sendBoard(lv, to) {
   const msg = { t: 'lb', lv, b: board(lv) };
@@ -397,6 +403,8 @@ wss.on('connection', (ws) => {
       if (!pk) { me.y = clamp(m.y, 0, 3); return; }
       me.y = clamp(m.y, pk.kill - 5, pk.bounds[5] + 12);
       if (me.finished) return;
+      // replay recording: one sample per position update from the moment the clock starts
+      if (me.pkStart) { if (!me.rec) me.rec = []; if (me.rec.length < 4000) me.rec.push([Math.round((Date.now() - me.pkStart) / 10), me.x, me.y, me.z, me.yaw, me.pitch]); } else me.rec = null;
       // the clock starts as soon as you step off the green start platform (7 x 7)
       if (!me.pkStart && (Math.abs(me.x - pk.start[0]) > 3.5 || Math.abs(me.z - pk.start[2]) > 3.5)) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
       const nextCp = pk.cps[me.cp];
@@ -405,12 +413,16 @@ wss.on('connection', (ws) => {
         const time = (Date.now() - me.pkStart) / 1000;
         if (time < pk.pathLen / 26) return;      // faster than anybody could run it
         me.finished = true;
-        const res = recordTime(room.level, me.name, Math.round(time * 100) / 100);
+        const res = recordTime(room.level, me.name, Math.round(time * 100) / 100, flatRec(me.rec));
         send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
         if (res.changed) sendBoard(room.level);
       }
     } else if (m.t === 'shot' && me) {
       shoot(room, me, m);
+    } else if (m.t === 'rp' && me) {
+      const now = Date.now(); if (now - (me.lastRp || 0) < 400) return; me.lastRp = now;
+      const lv = clamp(Math.floor(+m.lv) || 1, 1, PK_LEVELS), sc = levelScores(lv), list = m.p === 'd' ? sc.day.rows : m.p === 'm' ? sc.month.rows : sc.all, row = list[clamp(Math.floor(+m.i) || 0, 0, 9)];
+      if (row && row.r) send(me, { t: 'rpd', lv, n: row.n, time: row.t, f: row.r }); else send(me, { t: 'rpd', lv, none: 1 });
     } else if (m.t === 'stab' && me) {
       stab(room, me);
     } else if (m.t === 'throw' && me) {
