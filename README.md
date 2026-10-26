@@ -62,7 +62,8 @@ Les commandes tactiles apparaissent automatiquement sur mobile (écran tactile) 
 - La difficulté monte du niveau 1 au 10. Pas de checkpoints : une chute te ramène au départ.
 - Le **chrono démarre quand tu quittes la plateforme verte de départ** et s'arrête sur la plateforme d'arrivée.
 - **Classements** Daily / Monthly / All-time par niveau (jour et mois à l'heure de Paris), affichés sur un panneau au départ et sur un panneau flottant à l'arrivée.
-- **Tutoriel bunny hop** : dans le menu, mode Parkour, bouton « Learn to bunny hop ». Un bot joue en vue première personne sur une map à part (marcher, sauter, enchaîner les sauts, strafe en l'air, franchir un grand trou) pendant que les touches qu'il utilise s'allument (W A S D, Espace, souris) avec un compteur de vitesse. Ensuite tu peux essayer toi-même (`R` pour recommencer). Le tutoriel est local : il fonctionne sans serveur de jeu et n'enregistre aucun temps.
+- **Tutoriel bunny hop** : dans le menu, mode Parkour, bouton « Learn to bunny hop ». Un bot joue au ralenti, avec une caméra adoucie, en vue première personne sur une map à part (marcher, sauter, enchaîner les sauts, strafe en l'air, franchir un grand trou) pendant que les touches qu'il utilise s'allument (W A S D, Espace, souris) avec un compteur de vitesse. Ensuite tu peux essayer toi-même (`R` pour recommencer). Le tutoriel est local : il fonctionne sans serveur de jeu et n'enregistre aucun temps.
+- **Affichage des touches (Parkour)** : un petit panneau en bas à droite montre W A S D, Espace et ta vitesse en direct. Désactivable dans le menu (« Keystrokes (parkour) »). Masqué sur mobile et dans le tutoriel.
 - Les joueurs du **top 10** ont leur rang (`#1` à `#10`) au-dessus de la tête, et le meilleur temps affiche **WORLD RECORD HOLDER**.
 
 ## Lancer en local

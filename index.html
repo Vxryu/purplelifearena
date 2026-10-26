@@ -113,6 +113,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 @keyframes feedOut { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 .set { display: grid; grid-template-columns: 92px 1fr 44px; gap: 10px; align-items: center; margin: 0 0 10px; font-size: 0.88rem; }
 .set b { font-weight: 700; color: var(--accent); }
+.set input[type=checkbox] { justify-self: start; width: 18px; height: 18px; accent-color: var(--accent); }
 .set output { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 .set input[type=range] { width: 100%; accent-color: var(--accent); }
 .card input[type=text] { width: 100%; box-sizing: border-box; padding: 12px 14px; margin-bottom: 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,0.3); color: var(--ink); font: 500 1rem var(--body); }
@@ -234,6 +235,13 @@ body.touch #banner { font-size: 1.3rem; top: 14%; }
 
 /* ---------- parkour tutorial ---------- */
 .card button.ghost { background: transparent; border: 1px solid var(--accent); color: var(--accent); margin-bottom: 12px; }
+#ks { position: fixed; right: 14px; bottom: 92px; z-index: 3; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 3px; font: 600 11px system-ui, sans-serif; color: #e9dcff; }
+#ks[hidden], body.touch #ks { display: none; }
+.ksr { display: flex; gap: 3px; }
+.kk { min-width: 26px; height: 26px; padding: 0 6px; display: grid; place-items: center; border-radius: 6px; background: rgba(20,10,35,.55); border: 1px solid rgba(180,130,255,.35); }
+.kk.wide { min-width: 89px; }
+.kk.on { background: rgba(170,100,255,.85); color: #fff; border-color: #d9b8ff; }
+.kss { opacity: .8; margin-top: 2px; } .kss b { font-size: 13px; }
 #tut { position: fixed; inset: 0; pointer-events: none; z-index: 4; }
 #tut[hidden] { display: none; }
 #tutcap { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); width: min(560px, 90vw); text-align: center; padding: 12px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
@@ -291,6 +299,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   <button class="tb dmonly" id="tfire" data-tb="fire">FIRE</button>
 </div>
 <div id="rotate"><div><b>⟳</b>Turn your phone sideways to play</div></div>
+<div id="ks" hidden><div class="ksr"><span class="kk" id="ksW">W</span></div><div class="ksr"><span class="kk" id="ksA">A</span><span class="kk" id="ksS">S</span><span class="kk" id="ksD">D</span></div><div class="ksr"><span class="kk wide" id="ksSp">SPACE</span></div><div class="kss"><b id="kssv">0</b> u/s</div></div>
 <div id="tut" hidden>
   <div id="tutcap"><b id="tutt"></b><span id="tutx"></span></div>
   <div id="tutkeys">
@@ -337,6 +346,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       </details>
       <details><summary>Settings</summary>
         <div class="set"><b>Sensitivity</b><input type="range" id="sens" min="0.2" max="3" step="0.05" value="1"><output id="sensv">1.00</output></div>
+        <div class="set"><b>Keystrokes (parkour)</b><input type="checkbox" id="ksopt" checked></div>
         <div class="set"><b>Field of view</b><input type="range" id="fov" min="60" max="110" step="1" value="90"><output id="fovv">90</output></div>
       </details>
       <details><summary>Controls</summary>
@@ -425,7 +435,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function savePk() { try { localStorage.setItem('parena_pk_pb2', JSON.stringify(pkPB)); } catch (e) {} }
 
   // ---------- settings and wallet (saved in this browser) ----------
-  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0 };
+  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0, ks: true };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem('parena_online3') || '{}')); } catch (e) {}
   if (cfg.mode !== 'dm' && cfg.mode !== 'pk') cfg.mode = 'dm';
   if (!skinOk(cfg.skin)) cfg.skin = 0;
@@ -440,6 +450,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
   $('sens').value = cfg.sens; $('sensv').textContent = (+cfg.sens).toFixed(2);
   $('fov').value = cfg.fov; $('fovv').textContent = cfg.fov; $('name').value = cfg.name || '';
   $('sens').addEventListener('input', () => { cfg.sens = +$('sens').value; $('sensv').textContent = cfg.sens.toFixed(2); saveCfg(); });
+  $('ksopt').checked = cfg.ks !== false;
+  $('ksopt').addEventListener('change', () => { cfg.ks = $('ksopt').checked; saveCfg(); });
   $('fov').addEventListener('input', () => { cfg.fov = +$('fov').value; $('fovv').textContent = cfg.fov; saveCfg(); });
 
   function buildSwatches() {
@@ -1403,8 +1415,14 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (mouseDown && alive && (locked || drag)) { if (P.weapon === 'knife') stab(); else shoot(); }
     P.kick = Math.max(0, P.kick - dt * 9);
     const bob = Math.sin(performance.now() / 95) * Math.min(spd, 9) * 0.0016 * (P.y === 0 ? 1 : 0);
+    if (!$('ks').hidden) {
+      const on = (id, v) => $(id).classList.toggle('on', !!v);
+      on('ksW', keys.KeyW || keys.ArrowUp); on('ksA', keys.KeyA || keys.ArrowLeft); on('ksS', keys.KeyS || keys.ArrowDown); on('ksD', keys.KeyD || keys.ArrowRight); on('ksSp', keys.Space);
+      $('kssv').textContent = spd.toFixed(1);
+    }
     camera.position.set(P.x, P.y + (alive ? EYE : 0.5) + bob, P.z);
-    camera.rotation.set(P.pitch + P.kick * 0.014, P.yaw, alive ? 0 : 0.7);
+    const demo = tutorial && tutMode === 'demo', cy = demo ? tutVY : P.yaw;
+    camera.rotation.set(P.pitch + P.kick * 0.014 + (demo ? Math.sin(performance.now() / 700) * 0.012 : 0), cy, alive ? 0 : 0.7);
     const isK = P.weapon === 'knife';
     ads += (((alive && !mapInfo.pk && !isK && P.reloadT <= 0 && rmb && !chatOpen) ? 1 : 0) - ads) * Math.min(1, dt * 11);
     throwCd = Math.max(0, throwCd - dt); stabT = Math.max(0, stabT - dt);
@@ -1465,6 +1483,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     touchShow(on && state === 'play' && !(tutorial && tutMode === 'demo'));
     ['top', 'hp', 'ammo', 'cross', 'dash', 'streakhud', 'timer'].forEach((id) => { $(id).hidden = !on || pk; });
     $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('pkhint').hidden = !on || !pk;
+    $('ks').hidden = !(on && pk && cfg.ks !== false) || tutorial;
     if (!on) { $('bossbar').hidden = true; $('pkdone').hidden = true; }
   }
   function showCard(mode, board, endMsg) {
@@ -1674,12 +1693,12 @@ function tutStep(S, P, gAt, dt, route, plats) {
     ['Nice!', 'Now it is your turn.'],
     ['Your turn', 'Hold SPACE to hop. In the air hold D or A and turn the mouse that way. R restarts the course, Esc opens the menu.']
   ];
-  let tutorial = false, tutMode = 'demo', tutS = null, tutAcc = 0, tutPh = -1, tutLast = null, tutYaw = 0, tutSpT = 0;
+  let tutorial = false, tutMode = 'demo', tutS = null, tutAcc = 0, tutPh = -1, tutLast = null, tutYaw = 0, tutSpT = 0, tutVY = 0;
   function tutCaption(i) { if (i === tutPh) return; tutPh = i; $('tutt').textContent = TUT_TEXT[i][0]; $('tutx').textContent = TUT_TEXT[i][1]; }
-  function tutHud() { setHud(true); $('pkhud').hidden = true; $('right').hidden = true; $('chat').hidden = true; $('pkhint').hidden = true; $('tut').hidden = false; }
+  function tutHud() { setHud(true); $('pkhud').hidden = true; $('right').hidden = true; $('chat').hidden = true; $('pkhint').hidden = true; $('tut').hidden = false; $('ks').hidden = true; }
   function tutReset(mode) {
     tutMode = mode; P.x = 0; P.z = 0; P.y = 0.05; P.vx = P.vz = P.vy = 0; P.yaw = 0; P.pitch = -0.12; P.dead = false; P.hp = 100; P.fellT = 0.4;
-    tutS = tutNew(); tutAcc = 0; tutLast = null; tutYaw = 0;
+    tutS = tutNew(); tutAcc = 0; tutLast = null; tutYaw = 0; tutVY = 0;
     for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']) keys[k] = false;
     $('tutend').hidden = mode !== 'done';
     tutCaption(mode === 'demo' ? 0 : mode === 'done' ? 5 : 6);
@@ -1703,7 +1722,7 @@ function tutStep(S, P, gAt, dt, route, plats) {
   function tutUpdate(dt, alive) {
     let o = null;
     if (tutMode === 'demo') {
-      tutAcc = Math.min(tutAcc + dt, 0.1);
+      tutAcc = Math.min(tutAcc + dt * 0.62, 0.1);
       while (tutAcc >= 1 / 60) {
         tutAcc -= 1 / 60;
         o = tutStep(tutS, P, groundAt, 1 / 60, TUT_ROUTE, TUT_PLATS);
@@ -1712,6 +1731,7 @@ function tutStep(S, P, gAt, dt, route, plats) {
         if (tutS.done) { tutFinish(); break; }
       }
       P.pitch += (-0.14 - P.pitch) * Math.min(1, dt * 3);
+      tutVY += tutWrap(P.yaw - tutVY) * Math.min(1, dt * 5);
       if (o) { tutLast = o; if (o.Space) tutSpT = 0.25; }
       tutSpT = Math.max(0, tutSpT - dt);
       if (tutMode === 'demo') tutCaption(TUT_ROUTE[Math.min(tutS.wp, TUT_ROUTE.length - 1)].ph);
