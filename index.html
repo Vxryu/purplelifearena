@@ -1751,7 +1751,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (e.code === 'KeyV' && !e.repeat && state === 'play' && mapInfo.pk) nextPeriod(true);
     if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
-    if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
+    if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (!rpOffline) lock(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
     if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
     if (e.code === 'KeyE') dash();
@@ -1767,7 +1767,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   });
   canvas.addEventListener('mousedown', (e) => {
     if (e.button === 2 && locked && state === 'play' && runMode === 'dm') { if (P.weapon === 'knife') throwKnife(); else rmb = true; }
-    if (e.button === 0) { mouseDown = true; if (!locked && state === 'play' && !drag) lock(); } });
+    if (e.button === 0) { mouseDown = true; if (!locked && state === 'play' && !TOUCH) lock(); } });
   addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; if (e.button === 2) rmb = false; });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; rmb = false; });
