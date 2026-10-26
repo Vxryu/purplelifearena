@@ -125,3 +125,7 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 ## Replays and clean platforms
 - Parkour platforms no longer have small decorative objects (rocks, grass tufts, crystals...) on top of them.
 - **Top-10 replays:** the server records every run (position and view, 20 times per second) and keeps the replay of the Top 10 of each level's Daily, Monthly and All-time boards. From the main menu (Parkour selected) the **Replays** box shows the Top 10 of the level you picked with the arrows, with Day / Month / All-time tabs. You can also press `Esc` in game, open **Replays**, pick a board tab and press the play button next to a time to watch that run in first person. `Q` toggles slow motion, `R` exits the replay. Runs set before this update have no replay. Replays are stored in `scores-v2.json` (grows a little; set `DATA_DIR` to keep it on a persistent disk).
+
+## Records
+- The main menu shows a **Records** box for the selected mode: Parkour = Top 10 times of the picked level (Day / Month / All-time) with replays, Deathmatch = Top 10 **total kills** and **best killstreak**.
+- Deathmatch career stats (total kills, best streak) are saved on the server per player name, in the same `scores-v2.json` as the parkour times and replays. Total kills also restore your skin unlocks on any device. Use a persistent disk on Render (`DATA_DIR`) so nothing is lost on redeploy.

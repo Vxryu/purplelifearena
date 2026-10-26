@@ -325,6 +325,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
 .rpr b { color: var(--accent); } .rpr span:nth-child(3) { font-variant-numeric: tabular-nums; color: var(--muted); }
 .rpr button { width: 30px; padding: 3px 0; border-radius: 6px; font-size: .75rem; }
 .rpr button:disabled { opacity: .3; }
+.rpr.dmr { grid-template-columns: 26px 1fr auto; }
+.rpr.me { background: rgba(180,107,255,.2); }
 .rpe { color: var(--muted); font-size: .8rem; padding: 6px 2px; }
 #rpstop { margin-top: 8px; background: transparent; color: var(--ink); border: 1px solid var(--accent); }
 </style>
@@ -423,7 +425,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       </details>
     </div>
     <div id="rpbox" hidden>
-      <div class="rph"><b id="rptitle">Replays</b><span id="rptabs"><button type="button" data-p="d">Day</button><button type="button" data-p="m">Month</button><button type="button" data-p="a" class="on">All-time</button></span></div>
+      <div class="rph"><b id="rptitle">Records</b><span id="rptabs"><button type="button" data-p="d">Day</button><button type="button" data-p="m">Month</button><button type="button" data-p="a" class="on">All-time</button></span></div>
       <div id="rplist"></div>
       <button type="button" id="rpstop" hidden>Stop replay</button>
     </div>
@@ -560,7 +562,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const m = { pk: '10 levels, 10 biomes, all open. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
     if (state === 'menu') setMsg(m[cfg.mode]);
   }
-  document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); }));
+  document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); rpRender(); }));
   function renderPick() {
     $('pkpick').hidden = cfg.mode !== 'pk'; $('tutbtn').hidden = cfg.mode !== 'pk';
     cfg.pkLevel = Math.max(1, Math.min(pkUnlocked, cfg.pkLevel || 1));
@@ -1322,6 +1324,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
       P.x = m.x; P.y = m.y; P.z = m.z; P.vx = P.vz = P.vy = 0;
     } else if (m.t === 'pkr') {
       pkT0 = 0; pkTime = null; pkDone = false; pkFalls = m.f || 0; $('pkdone').hidden = true; pkHud();
+    } else if (m.t === 'dmstat') {
+      if (m.k > totalKills) { totalKills = m.k; try { localStorage.setItem('parena_total_kills', totalKills); } catch (e) {} renderSkins(); }
+      dmFetchAt = -1e9;
     } else if (m.t === 'rpd') {
       startReplay(m);
     } else if (m.t === 'pks') {
@@ -1437,29 +1442,39 @@ body.touch #tutcap span { font-size: 0.78rem; }
   // ---------- replays of the top 10 (first-person playback of the recorded run) ----------
   let replay = null, rpPer = 'a', rpSaved = null, rpHint = '';
   let rpOffline = false, rpFetchAt = {};
-  function rpLevel() {
+  let rpDm = 'k', dmCache = null, dmFetchAt = -1e9;
+  function rpLevel() {      // >0 parkour level, -1 deathmatch, 0 hidden
     if (tutorial) return 0;
-    if (state === 'menu' && cfg.mode === 'pk') return cfg.pkLevel;
-    if (state === 'pause' && mapInfo.pk && (ws || rpOffline)) return mapInfo.pk.lv;
+    if (state === 'menu') return cfg.mode === 'pk' ? cfg.pkLevel : cfg.mode === 'dm' ? -1 : 0;
+    if (state === 'pause') { if (mapInfo.pk && (ws || rpOffline)) return mapInfo.pk.lv; if (runMode === 'dm' && ws) return -1; }
     return 0;
   }
   function rpFetch(lv) {
+    if (lv < 0) {
+      if (performance.now() - dmFetchAt < 8000) return; dmFetchAt = performance.now();
+      fetch('/api/dm').then((r) => r.json()).then((b) => { dmCache = b; rpRender(); }).catch(() => {}); return;
+    }
     if (performance.now() - (rpFetchAt[lv] || -1e9) < 8000) return; rpFetchAt[lv] = performance.now();
     fetch('/api/lb?lv=' + lv).then((r) => r.json()).then((b) => { lbCache[lv] = b; rpRender(); }).catch(() => {});
   }
   function rpRender() {
     const box = $('rpbox'), lv = rpLevel(); box.hidden = !lv; if (!lv) return;
-    if (state === 'menu') rpFetch(lv);
-    $('rpstop').hidden = !replay; $('rptitle').textContent = 'Replays \u00b7 Level ' + lv;
-    document.querySelectorAll('#rptabs button').forEach((b) => b.classList.toggle('on', b.dataset.p === rpPer));
-    const b = lbCache[lv] || {}, rows = (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : b.a) || [], list = $('rplist'); list.innerHTML = '';
-    if (!rows.length) { list.innerHTML = '<div class="rpe">' + (lbCache[lv] ? 'No times yet on this board.' : 'Loading...') + '</div>'; return; }
+    rpFetch(lv);
+    const dm = lv < 0, cur = dm ? rpDm : rpPer, tabs = dm ? [['k', 'Total kills'], ['s', 'Killstreak']] : [['d', 'Day'], ['m', 'Month'], ['a', 'All-time']];
+    $('rpstop').hidden = !replay; $('rptitle').textContent = dm ? 'Records \u00b7 Deathmatch' : 'Records \u00b7 Level ' + lv;
+    $('rptabs').innerHTML = tabs.map((t) => `<button type="button" data-p="${t[0]}"${t[0] === cur ? ' class="on"' : ''}>${t[1]}</button>`).join('');
+    const list = $('rplist'); list.innerHTML = '';
+    const src = dm ? dmCache : lbCache[lv], b = src || {}, rows = (dm ? b[rpDm] : (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : b.a)) || [];
+    if (!rows.length) { list.innerHTML = '<div class="rpe">' + (src ? (dm ? 'No kills recorded yet.' : 'No times yet on this board.') : 'Loading...') + '</div>'; return; }
     rows.forEach((r, i) => {
-      const d = document.createElement('div'); d.className = 'rpr';
-      d.innerHTML = `<b>#${i + 1}</b><span>${esc(r[0])}</span><span>${fmtT(r[1])}</span>`;
-      const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = '\u25B6'; bt.disabled = !r[2]; bt.title = r[2] ? 'Watch replay' : 'No replay recorded';
-      bt.addEventListener('click', () => { loadReplay(lv, rpPer, i); bt.disabled = true; setTimeout(() => { bt.disabled = !r[2]; }, 900); });
-      d.appendChild(bt); list.appendChild(d);
+      const d = document.createElement('div'); d.className = 'rpr' + (dm ? ' dmr' : '') + (cfg.name && r[0].toLowerCase() === cfg.name.toLowerCase() ? ' me' : '');
+      d.innerHTML = `<b>#${i + 1}</b><span>${esc(r[0])}</span><span>${dm ? r[1] : fmtT(r[1])}</span>`;
+      if (!dm) {
+        const bt = document.createElement('button'); bt.type = 'button'; bt.textContent = '\u25B6'; bt.disabled = !r[2]; bt.title = r[2] ? 'Watch replay' : 'No replay recorded';
+        bt.addEventListener('click', () => { loadReplay(lv, rpPer, i); bt.disabled = true; setTimeout(() => { bt.disabled = !r[2]; }, 900); });
+        d.appendChild(bt);
+      }
+      list.appendChild(d);
     });
   }
   // online (in pause) the server answers over the socket; from the menu we fetch the data over http and build the map locally
@@ -1471,7 +1486,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       startReplay(rp);
     }).catch(() => banner('Could not load the replay', 1500));
   }
-  document.querySelectorAll('#rptabs button').forEach((b) => b.addEventListener('click', () => { rpPer = b.dataset.p; rpRender(); }));
+  $('rptabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (rpLevel() < 0) rpDm = b.dataset.p; else rpPer = b.dataset.p; rpRender(); });
   $('rpstop').addEventListener('click', () => { endReplay(); if (rpOffline) { leaveOfflineReplay(); state = 'menu'; showCard('menu'); } else rpRender(); });
   function startReplay(m) {
     if (!mapInfo.pk || mapInfo.pk.lv !== m.lv) return;

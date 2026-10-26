@@ -30,6 +30,7 @@ const server = http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x'), lv = Math.max(1, Math.min(PK_LEVELS, Math.floor(+u.searchParams.get('lv')) || 1));
     const out = (o, raw) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(raw || JSON.stringify(o)); };
     if (u.pathname === '/api/lb') { out(board(lv)); return; }
+    if (u.pathname === '/api/dm') { out(careerBoard()); return; }
     if (u.pathname === '/api/map') { out(null, pkRoom(lv).map.wire); return; }
     if (u.pathname === '/api/rp') {
       const sc = levelScores(lv), p = u.searchParams.get('p'), list = p === 'd' ? sc.day.rows : p === 'm' ? sc.month.rows : sc.all, row = list[Math.max(0, Math.min(9, Math.floor(+u.searchParams.get('i')) || 0))];
@@ -264,11 +265,19 @@ function knifeTick(room) {
     }
   }
 }
+// ---- deathmatch career stats per player name (saved with the parkour scores): total kills and best killstreak ----
+function dmStat(name) { const d = scores._dm || (scores._dm = {}), k = name.toLowerCase(); return d[k] || (d[k] = { n: name, k: 0, s: 0 }); }
+function careerBoard() {
+  const all = Object.values(scores._dm || {});
+  const top = (f) => all.filter((r) => r[f] > 0).sort((a, b) => b[f] - a[f]).slice(0, 10).map((r) => [r.n, r[f]]);
+  return { k: top('k'), s: top('s') };
+}
 function hitPlayerDm(room, s, hit, rec) {
   hit.hp -= rec.dmg; hit.hurtT = 0;
   if (hit.hp > 0) { send(s, { t: 'hm', h: rec.head ? 1 : 0, k: 0, w: rec.w | 0 }); send(hit, { t: 'hurt', hp: Math.round(hit.hp) }); return; }
   hit.hp = 0; hit.dead = true; hit.deadT = 2.2; hit.deaths++; hit.streak = 0;
   s.kills++; s.streak++; s.best = Math.max(s.best, s.streak);
+  { const st = dmStat(s.name); st.n = s.name; st.k++; st.s = Math.max(st.s, s.streak); saveScores(); }
   if (rec.head) s.heads++;
   s.coinsRun += 10;
   send(s, { t: 'hm', h: rec.head ? 1 : 0, k: 1, c: 10, w: rec.w | 0, bs: rec.bs ? 1 : 0 });
@@ -402,6 +411,7 @@ wss.on('connection', (ws) => {
         kills: 0, deaths: 0, heads: 0, streak: 0, best: 0, coinsRun: 0, lastShot: 0, lastSniper: 0, lastStab: 0, lastThrow: 0, swapT: 0, cur: 'rifle', lastChat: 0, lastSt: Date.now(), cp: 0, pkStart: 0, finished: false, falls: 0 };
       enterRoom(me, r);
       send(me, { t: 'chatlog', l: chatLog });
+      if (r.mode === 'dm') { const st = dmStat(me.name); send(me, { t: 'dmstat', k: st.k, s: st.s }); }
     } else if (m.t === 'st' && me && !me.dead) {
       if (![m.x, m.y, m.z, m.yaw, m.pitch].every((v) => typeof v === 'number' && isFinite(v))) return;
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
