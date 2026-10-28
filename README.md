@@ -9,7 +9,7 @@ FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deu
 | Mode | Description |
 |------|-------------|
 | **Deathmatch** | Joueur contre joueur, parties de 1:30. Fusil, sniper et couteau. **5 maps** qui s'alternent à la fin de chaque partie. |
-| **Parkour** | **10 niveaux** (un biome chacun), **bhop**, classements par niveau. Tous les niveaux sont ouverts dès le début. |
+| **Parkour** | **12 niveaux** (un biome chacun), **bhop**, classements par niveau. Tous les niveaux sont ouverts dès le début. |
 
 ## Contrôles
 
@@ -22,6 +22,7 @@ FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deu
 | `Clic droit` | Viser (lunette pour le sniper) · lancer le couteau |
 | `1` `2` `3` ou molette | Fusil · sniper · couteau |
 | `R` | Recharger (parkour : recommencer le niveau) |
+| `P` | Vue à la 3e personne (activer / désactiver) |
 | `E` | Dash |
 | `Entrée` ou `T` | Chat global |
 | `N` / `B` | Niveau suivant / précédent (parkour) |

@@ -230,6 +230,7 @@ body.touch #bhbar { width: 150px; }
 #tlvl { position: absolute; right: 3vh; top: 12vh; display: flex; gap: 1vh; }
 #tlvl .tp { position: static; }
 #tboard { right: 3vh; top: 21vh; }
+#tcam { right: 3vh; top: 39vh; }
 #touch .pkonly { display: none; }
 #touch .tb small.pkonly { display: none; }
 #touch.pk .tb small.pkonly { display: block; }
@@ -365,7 +366,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
 <div class="hud" id="bhud" hidden><div class="sp"><span id="bhsp">0.0</span><small>U/S</small></div><div id="bhbar"><i id="bhfill"></i></div><div class="row"><span id="bhcombo">BHOP ×0</span><span id="bhsync">SYNC –</span></div></div>
 <div class="hud" id="pkhud" hidden><small id="pkname">Level 1</small><b id="pktime">0:00.00</b><span id="pkcp">Falls 0</span><br><small id="pkbest"></small></div>
 <div class="hud" id="pkdone" hidden></div>
-<div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; B / N: previous / next level &middot; V: daily / monthly / all-time board</div>
+<div class="hud" id="pkhint" hidden>Space: jump (hold to bunny hop) &middot; R: restart &middot; B / N: previous / next level &middot; V: daily / monthly / all-time board &middot; P: third person view</div>
 <div class="hud" id="bossbar" hidden><span id="bossname">Boss</span><div><i id="bossfill"></i></div></div>
 <div class="hud" id="hp" hidden><small>Health</small><div id="hpbar"><div id="hpfill"></div></div></div>
 <div class="hud" id="ammo" hidden><small id="ammolabel">Ammo</small><b id="mag">30</b> <span id="magmax">/ 30</span></div>
@@ -381,6 +382,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   <button class="tp" id="tchat" data-tb="chat">💬 Chat</button>
   <button class="tp pkonly" id="trestart" data-tb="restart">⟲ Restart</button>
   <div id="tlvl" class="pkonly"><button class="tp" data-tb="prev">◀ Level</button><button class="tp" data-tb="next">Level ▶</button></div>
+  <button class="tp pkonly" id="tcam" data-tb="cam">📷 Cam</button>
   <button class="tp pkonly" id="tboard" data-tb="board">🏆 Day / Month / All</button>
   <button class="tb dmonly" id="tdash" data-tb="dash">DASH</button>
   <button class="tb dmonly" id="tslide" data-tb="slide">SLIDE</button>
@@ -448,7 +450,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       <details><summary>Controls</summary>
         <ul class="keys" id="keys">
           <li><b>Move</b><span>WASD (ZQSD on a French keyboard), Shift or Left Ctrl to run, Space to jump. If your browser closes the tab with Ctrl+W, press W first then Ctrl, or play in fullscreen (F).</span></li>
-          <li><b>Parkour</b><span>Hold Space to bunny hop. In the air, turn the mouse and hold A or D to gain speed. R restarts the level, N and B switch to the next or previous level.</span></li>
+          <li><b>Parkour</b><span>Hold Space to bunny hop. In the air, turn the mouse and hold A or D to gain speed. R restarts the level, N and B switch to the next or previous level. P switches between first and third person view.</span></li>
           <li><b>Pause</b><span>Esc</span></li>
         </ul>
       </details>
@@ -1769,11 +1771,12 @@ body.touch #tutcap span { font-size: 0.78rem; }
     camera.position.set(P.x, P.y + (alive ? EYE - 0.75 * P.slideK : 0.5) + bob - landDip, P.z);
     const demo = tutorial && tutMode === 'demo', cy = demo ? tutVY : P.yaw;
     camera.rotation.set(P.pitch + P.kick * 0.014 + (demo ? Math.sin(performance.now() / 700) * 0.012 : 0), cy, alive ? P.slideK * 0.04 : 0.7);
+    const tp3 = thirdPerson(dt, alive);
     const isK = P.weapon === 'knife', pk0 = !!mapInfo.pk;
     ads += (((alive && !mapInfo.pk && !isK && P.reloadT <= 0 && rmb && !chatOpen) ? 1 : 0) - ads) * Math.min(1, dt * 11);
     throwCd = Math.max(0, throwCd - dt); stabT = Math.max(0, stabT - dt);
     const scoped = P.weapon === 'sniper' && ads > 0.85 && alive;
-    gun.visible = alive && !mapInfo.pk && !isK && !scoped;
+    gun.visible = alive && !mapInfo.pk && !isK && !scoped && !tp3;
     {
       // weapon animation: look sway, idle breathing, figure-8 walk bob, jump/land, reload dip, switch raise, recoil
       const now = performance.now() / 1000, mv = Math.min(spd, 12) / 12, grounded = P.gr || Math.abs(P.vy) < 0.01;
@@ -1812,6 +1815,27 @@ body.touch #tutcap span { font-size: 0.78rem; }
     o.phase += dt * Math.min(o.speed, 12) * 1.4;
     const sw = airborne ? 0.5 : Math.min(1, o.speed / 6) * 0.8;
     o.legL.rotation.x = Math.sin(o.phase) * sw; o.legR.rotation.x = -Math.sin(o.phase) * sw;
+  }
+  let thirdP = false, selfAv = null, selfPh = 0;
+  try { thirdP = localStorage.getItem('parena_tp') === '1'; } catch (e) {}
+  const tpRay = new THREE.Raycaster(), tpDir = new THREE.Vector3(), tpHead = new THREE.Vector3();
+  // third person: the camera sits behind the player (pulled in by walls) and a body is drawn in place of the first-person view
+  function thirdPerson(dt, alive) {
+    const on = thirdP && alive && !replay && !tutorial;
+    if (selfAv && (!on || selfAv.col !== cfg.color + cfg.tone)) { scene.remove(selfAv.g); selfAv = null; }
+    if (!on) return false;
+    if (!selfAv) { selfAv = makeHumanoid({ shirt: cfg.color, skin: TONES[cfg.tone] || TONES[1], hair: cfg.tone >= 3 ? '#16110d' : '#3a2a1f' }); selfAv.col = cfg.color + cfg.tone; selfAv.speed = 0; }
+    const sp = Math.hypot(P.vx, P.vz); selfPh += dt * Math.min(sp, 12) * 1.4;
+    const sw = P.y > 0.05 && P.vy !== 0 && !P.gr ? 0.5 : Math.min(1, sp / 6) * 0.8;
+    selfAv.legL.rotation.x = Math.sin(selfPh) * sw; selfAv.legR.rotation.x = -Math.sin(selfPh) * sw;
+    selfAv.g.position.set(P.x, P.y, P.z); selfAv.g.rotation.y = P.yaw; selfAv.g.scale.y = 1 - 0.38 * P.slideK;
+    const pit = P.pitch, cp = Math.cos(pit), D = 4.6;
+    tpHead.set(P.x, P.y + 1.6, P.z);
+    tpDir.set(-Math.sin(P.yaw) * cp, Math.sin(pit), -Math.cos(P.yaw) * cp);   // direction the player looks; the camera goes the opposite way
+    let dist = D; tpRay.set(tpHead, tpDir.clone().negate()); tpRay.far = D + 0.3;
+    const h = tpRay.intersectObjects(solids, false)[0]; if (h) dist = Math.max(0.6, h.distance - 0.35);
+    camera.position.set(tpHead.x - tpDir.x * dist, tpHead.y - tpDir.y * dist + 0.4, tpHead.z - tpDir.z * dist);
+    return true;
   }
   let gaPrevYaw = 0, gaPrevPitch = 0, gaSwX = 0, gaSwY = 0, swT = 0, landDip = 0, wasAir = false;
   function animateWorld(dt) {
@@ -1914,6 +1938,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if ((e.code === 'Enter' || e.code === 'KeyT') && state === 'play' && !e.repeat) { e.preventDefault(); openChat(); return; }
     if (!e.repeat && e.code.startsWith('Digit') && '123'.includes(e.code[5])) setWeapon(SLOTS[+e.code[5] - 1]);
     if (e.code === 'KeyV' && !e.repeat && state === 'play' && mapInfo.pk) nextPeriod(true);
+    if (e.code === 'KeyP' && !e.repeat && state === 'play' && !chatOpen) { thirdP = !thirdP; try { localStorage.setItem('parena_tp', thirdP ? '1' : '0'); } catch (err) {} }
     if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
     if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (!rpOffline) lock(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
@@ -1980,7 +2005,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     auto:  { down() { autoJ = !autoJ; $('tauto').classList.toggle('lock', autoJ); fakeKey('Space', autoJ); } },
     assist: { down() { cfg.assist = cfg.assist === false; saveCfg(); $('tassist').classList.toggle('lock', cfg.assist !== false); } },
     reload: { tap: 'KeyR' }, dash: { tap: 'KeyE' }, slide: { tap: 'KeyC' }, w1: { tap: 'Digit1' }, w2: { tap: 'Digit2' }, w3: { tap: 'Digit3' },
-    restart: { tap: 'KeyR' }, prev: { tap: 'KeyB' }, next: { tap: 'KeyN' }, board: { tap: 'KeyV' },
+    restart: { tap: 'KeyR' }, prev: { tap: 'KeyB' }, next: { tap: 'KeyN' }, board: { tap: 'KeyV' }, cam: { tap: 'KeyP' },
     chat: { down() { openChat(); } },
     menu: { down() { if (state !== 'play') return; state = 'pause'; mouseDown = false; rmb = false; showCard('pause'); } }
   };

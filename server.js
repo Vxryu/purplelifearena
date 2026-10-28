@@ -471,7 +471,6 @@ wss.on('connection', (ws) => {
       if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < (pk.cpR || 2.6) && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
       else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < 3.2 && Math.abs(me.y - pk.fin[1]) < 2.2) {
         const time = (Date.now() - me.pkStart) / 1000;
-        if (time < pk.pathLen / 26) return;      // faster than anybody could run it
         me.finished = true;
         const res = recordTime(room.level, me.name, Math.round(time * 100) / 100, flatRec(me.rec));
         send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
