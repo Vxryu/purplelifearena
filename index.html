@@ -510,7 +510,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   const TONES = ['#f1c9a5', '#e0ac82', '#c68863', '#8d5a3b', '#5a3a26'];
   const COLORS = ['#b46bff', '#ff4d7a', '#4ad1c2', '#ffb347', '#7aa8ff', '#9be15d', '#f1eaff', '#ff7a45'];
   const MODES = { dm: 'Deathmatch', camp: 'Campaign', endless: 'Endless', pk: 'Parkour' };
-  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space', 'Deep Caverns'];
+  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space', 'Deep Caverns', 'Final Sprint'];
   const PK_N = PK_NAMES.length;
   // weapon skins, unlocked with your total kills over all matches (saved in this browser)
   const SKINS = [
@@ -588,7 +588,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   }
   function renderModes() {
     document.querySelectorAll('.mode').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === cfg.mode)));
-    const m = { pk: '11 levels, all open. The last one is a long cave with walls and no checkpoints. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
+    const m = { pk: '12 levels, all open. The last one is a long cave with walls and no checkpoints. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
     if (state === 'menu') setMsg(m[cfg.mode]);
   }
   document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); rpRender(); }));
