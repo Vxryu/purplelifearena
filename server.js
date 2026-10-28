@@ -1,13 +1,13 @@
 // Purple Arena - authoritative multiplayer server with two game modes:
 //   dm       Deathmatch: 1:30 matches, most kills wins
-//   pk       Parkour: 10 timed levels (one biome each) with bunny hop, best times saved per level
+//   pk       Parkour: 10 timed levels + 10 surf maps (levels 11 to 20) (one biome each) with bunny hop, best times saved per level
 // Clients send their position and shots. The server runs hit detection, scores and the parkour timer.
 
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const { getMap, DM_MAPS, PK_LEVELS } = require('./maps');
+const { getMap, DM_MAPS, PK_LEVELS, rampH } = require('./maps');
 
 const PORT = process.env.PORT || 3000;
 const MATCH_SECONDS = +process.env.MATCH_S || 90;
@@ -59,13 +59,25 @@ const DM_GUNS = { rifle: WEAPONS.rifle, sniper: { dmg: 100, rate: 2.0, spread: 0
 const STAB_DMG = 50, STAB_BACK = 200, STAB_RANGE = 2.3, STAB_CD = 450, THROW_CD = 2500, KNIFE_SPEED = 38, KNIFE_G = 8;
 const CUR_IDX = { rifle: 0, sniper: 1, knife: 2 };
 
+function rampTol(map, x, z, y) {
+  if (map.pk) return 0;
+  for (const b of map.boxes) {
+    if (b.kind !== 'ramp' || Math.abs(x - b.x) > b.w / 2 + 0.6 || Math.abs(z - b.z) > b.d / 2 + 0.6) continue;
+    const nx = Math.max(b.x - b.w / 2, Math.min(x, b.x + b.w / 2)), nz = Math.max(b.z - b.d / 2, Math.min(z, b.z + b.d / 2));
+    if (Math.abs(rampH(b, nx, nz) - y) < 0.5) return 0.6;
+  }
+  return 0;
+}
 function pushOut(map, p, r, y) {
   y = y || 0;
+  const tol = rampTol(map, p.x, p.z, y);
   for (const b of map.boxes) {
+    if (b.kind === 'surf') continue;       // surf planes are handled by the client's physics
     const top = b.y + b.h;
-    if (y >= top - 0.05 || y + PLAYER_H <= b.y) continue;   // standing on it / passing under it
+    if (y >= top - 0.05 - (b.kind === 'ramp' ? 0 : tol) || y + PLAYER_H <= b.y) continue;   // standing on it / passing under it
     const nx = Math.max(b.x - b.w / 2, Math.min(p.x, b.x + b.w / 2));
     const nz = Math.max(b.z - b.d / 2, Math.min(p.z, b.z + b.d / 2));
+    if (b.kind === 'ramp' && y >= rampH(b, nx, nz) - 0.5) continue;      // walking up / down the slope
     let dx = p.x - nx, dz = p.z - nz, d2 = dx * dx + dz * dz;
     if (d2 < r * r) {
       if (d2 < 1e-6) { dx = p.x - b.x; dz = p.z - b.z; d2 = dx * dx + dz * dz || 1; }
@@ -93,6 +105,18 @@ function rayBox(o, d, b) {
   }
   return tmin;
 }
+// ramps are wedges: march through the bounding box and stop where the ray is below the slope
+function rayBoxX(o, d, b) {
+  const t0 = rayBox(o, d, b);
+  if (b.kind !== 'ramp' || t0 === Infinity) return t0;
+  const len = b.w + b.d + b.h;
+  for (let t = t0; t < t0 + len; t += 0.12) {
+    const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t;
+    if (Math.abs(x - b.x) > b.w / 2 + 0.01 || Math.abs(z - b.z) > b.d / 2 + 0.01 || y > b.y + b.h + 0.01) { if (t > t0 + 0.2) break; continue; }
+    if (y <= rampH(b, x, z)) return t;
+  }
+  return Infinity;
+}
 function raySphere(o, d, c, r) {
   const ox = o.x - c.x, oy = o.y - c.y, oz = o.z - c.z;
   const b = ox * d.x + oy * d.y + oz * d.z, cc = ox * ox + oy * oy + oz * oz - r * r, disc = b * b - cc;
@@ -113,7 +137,7 @@ function rayCyl(o, d, cx, cz, r, y0, y1) {
 function blockedLine(map, a, b) {
   const d = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z }, l = Math.hypot(d.x, d.y, d.z) || 1;
   d.x /= l; d.y /= l; d.z /= l;
-  for (const bx of map.boxes) if (rayBox(a, d, bx) < l) return true;
+  for (const bx of map.boxes) if (rayBoxX(a, d, bx) < l) return true;
   return false;
 }
 
@@ -169,12 +193,22 @@ function respawn(room, p) {
   if (room.mode === 'dm') sp = spawnPoint(room, p).slice();
   else sp = freeSpot(room.map, ...room.map.spawns[Math.floor(Math.random() * room.map.spawns.length)], 1.5);
   if (room.mode === 'dm') sp = freeSpot(room.map, sp[0], sp[1], 0.5);
+  p.hist = []; p.sl = 0;
   p.x = sp[0]; p.z = sp[1]; p.y = 0; p.hp = 100; p.dead = false; p.deadT = 0; p.inv = 2; p.hurtT = 99;
   send(p, { t: 'respawn', x: p.x, y: 0, z: p.z, hp: 100 });
 }
 // new map for a running room: tell the players and move them (the dead stay dead)
 // ---- players taking damage ----
 // ---- shooting ----
+function posAt(v, tt) {
+  const h = v.hist;
+  if (!h || !h.length || tt >= h[h.length - 1].t) return { x: v.x, y: v.y || 0, z: v.z };
+  if (tt <= h[0].t) return h[0];
+  for (let i = h.length - 1; i > 0; i--) {
+    if (h[i - 1].t <= tt) { const a = h[i - 1], b = h[i], k = (tt - a.t) / Math.max(1, b.t - a.t); return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k }; }
+  }
+  return h[0];
+}
 function shoot(room, s, m) {
   if (s.dead) return;
   if (room.mode === 'pk') return;
@@ -192,18 +226,22 @@ function shoot(room, s, m) {
   const pitch = clamp(typeof m.pitch === 'number' && isFinite(m.pitch) ? m.pitch : s.pitch, -1.5, 1.5);
   const o = { x: s.x, y: s.y + 1.7, z: s.z }, cp = Math.cos(pitch);
   const hits = new Map(); let first = null;
+  const rewindT = Date.now() - clamp((+m.rtt || 0) / 2 + 100, 0, 350);     // lag compensation: judge the shot against what the shooter saw
   for (let i = 0; i < W.pellets; i++) {
     const d = { x: -Math.sin(yaw) * cp + (Math.random() - 0.5) * W.spread * spreadK * 2, y: Math.sin(pitch) + (Math.random() - 0.5) * W.spread * spreadK * 2, z: -Math.cos(yaw) * cp + (Math.random() - 0.5) * W.spread * spreadK * 2 };
     const l = Math.hypot(d.x, d.y, d.z); d.x /= l; d.y /= l; d.z /= l;
     let tBest = 120, target = null, head = false;
-    for (const b of room.map.boxes) { const tb = rayBox(o, d, b); if (tb < tBest) tBest = tb; }
+    for (const b of room.map.boxes) { const tb = rayBoxX(o, d, b); if (tb < tBest) tBest = tb; }
     const cands = plist(room).filter((v) => v !== s && !v.dead && v.inv <= 0);
     for (const v of cands) {
-      const sc = v.T ? v.T.scale : 1, vy = v.y || 0;
-      const th = raySphere(o, d, { x: v.x, y: vy + 1.55 * sc, z: v.z }, 0.32 * sc);
-      const tb = rayCyl(o, d, v.x, v.z, 0.5 * sc, vy, vy + 1.3 * sc);
-      if (th < tBest) { tBest = th; target = v; head = true; }
-      if (tb < tBest) { tBest = tb; target = v; head = false; }
+      // hitboxes follow the model: head sphere, torso (shoulders and arms), legs; a sliding player is squashed
+      const pos = posAt(v, rewindT), q = v.sl ? 0.62 : 1;
+      const th = raySphere(o, d, { x: pos.x, y: pos.y + 1.58 * q, z: pos.z }, 0.26);
+      const tt = rayCyl(o, d, pos.x, pos.z, 0.36, pos.y + 0.8 * q, pos.y + 1.47 * q);
+      const tl = rayCyl(o, d, pos.x, pos.z, 0.25, pos.y, pos.y + 0.8 * q);
+      const tb = Math.min(tt, tl);
+      if (th < tBest && th <= tb + 0.15) { tBest = th; target = v; head = true; }
+      else if (tb < tBest) { tBest = tb; target = v; head = false; }
     }
     if (i === 0) first = { x: o.x + d.x * tBest, y: o.y + d.y * tBest, z: o.z + d.z * tBest };
     if (target) { const rec = hits.get(target) || { dmg: 0, head: false, w: gunId === 'sniper' ? 1 : 0 }; rec.dmg += head ? W.dmg * 2 : W.dmg; rec.head = rec.head || head; hits.set(target, rec); }
@@ -248,7 +286,7 @@ function knifeTick(room) {
     const k = list[i]; let end = 0, hitP = null;
     const vl = Math.hypot(k.vx * TICK, k.vy * TICK, k.vz * TICK) || 1e-6, o = { x: k.x, y: k.y, z: k.z }, d = { x: k.vx * TICK / vl, y: k.vy * TICK / vl, z: k.vz * TICK / vl };
     let tb = vl;
-    for (const b of room.map.boxes) { const x = rayBox(o, d, b); if (x < tb) { tb = x; end = 1; } }
+    for (const b of room.map.boxes) { const x = rayBoxX(o, d, b); if (x < tb) { tb = x; end = 1; } }
     for (const v of plist(room)) {
       if (v === k.owner || v.dead || v.inv > 0) continue;
       const vy = v.y || 0, near = Math.hypot(v.x - o.x, v.z - o.z) < 0.55 && o.y > vy && o.y < vy + 1.9;
@@ -321,7 +359,7 @@ function playersCommon(room) {
 }
 function snapshot(room) {
   const list = plist(room).map((p) => [p.id, p.name, r1(p.x), r1(p.y), r1(p.z), Math.round(p.yaw * 100) / 100, Math.round(p.pitch * 100) / 100,
-    p.dead ? 1 : 0, room.mode === 'pk' ? p.cp : p.kills, room.mode === 'dm' ? p.deaths : room.mode === 'pk' ? p.falls : p.coinsRun, p.color, p.inv > 0 ? 1 : 0, p.tone, p.skin | 0, CUR_IDX[p.cur] | 0]);
+    p.dead ? 1 : 0, room.mode === 'pk' ? p.cp : p.kills, room.mode === 'dm' ? p.deaths : room.mode === 'pk' ? p.falls : p.coinsRun, p.color, p.inv > 0 ? 1 : 0, p.tone, p.skin | 0, CUR_IDX[p.cur] | 0, p.sl ? 1 : 0]);
   const s = JSON.stringify({ t: 's', p: list, m: [], ph: room.phase, ib: room.info, boss: null, tl: Math.max(0, Math.round(room.timeLeft * 10) / 10) });
   for (const p of room.players.values()) if (p.ws.readyState === 1) p.ws.send(s);
 }
@@ -417,11 +455,15 @@ wss.on('connection', (ws) => {
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
       const map = room.map, pk = map.pk;
       let nx = m.x, nz = m.z;
-      const maxd = 34 * dt + 1.2, dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz);
+      const maxd = (pk && pk.surf ? 48 : 34) * dt + 1.2, dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz);
       if (dd > maxd) { nx = me.x + dx / dd * maxd; nz = me.z + dz / dd * maxd; }
       const p = { x: nx, z: nz }; pushOut(map, p, 0.45, m.y);
       me.x = p.x; me.z = p.z; me.yaw = m.yaw; me.pitch = clamp(m.pitch, -1.5, 1.5);
-      if (!pk) { me.y = clamp(m.y, 0, 3); return; }
+      if (!pk) {
+        me.y = clamp(m.y, 0, 8); me.sl = m.sl ? 1 : 0;
+        const hh = me.hist || (me.hist = []); hh.push({ t: Date.now(), x: me.x, y: me.y, z: me.z }); if (hh.length > 40) hh.shift();
+        return;
+      }
       me.y = clamp(m.y, pk.kill - 5, pk.bounds[5] + 12);
       if (me.finished) return;
       // replay recording: one sample per position update from the moment the clock starts
@@ -430,9 +472,9 @@ wss.on('connection', (ws) => {
       if (!me.pkStart && (Math.abs(me.x - pk.start[0]) > 3.5 || Math.abs(me.z - pk.start[2]) > 3.5)) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
       const nextCp = pk.cps[me.cp];
       if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < 2.6 && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
-      else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < 3.2 && Math.abs(me.y - pk.fin[1]) < 2.2) {
+      else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < (pk.finR || 3.2) && Math.abs(me.y - pk.fin[1]) < 2.2) {
         const time = (Date.now() - me.pkStart) / 1000;
-        if (time < pk.pathLen / 26) return;      // faster than anybody could run it
+        if (time < pk.pathLen / (pk.vmax || 26)) return;      // faster than anybody could run it
         me.finished = true;
         const res = recordTime(room.level, me.name, Math.round(time * 100) / 100, flatRec(me.rec));
         send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
@@ -444,6 +486,8 @@ wss.on('connection', (ws) => {
       const now = Date.now(); if (now - (me.lastRp || 0) < 400) return; me.lastRp = now;
       const lv = clamp(Math.floor(+m.lv) || 1, 1, PK_LEVELS), sc = levelScores(lv), list = m.p === 'd' ? sc.day.rows : m.p === 'm' ? sc.month.rows : sc.all, row = list[clamp(Math.floor(+m.i) || 0, 0, 9)];
       if (row && row.r) send(me, { t: 'rpd', lv, n: row.n, time: row.t, f: row.r }); else send(me, { t: 'rpd', lv, none: 1 });
+    } else if (m.t === 'ping' && me) {
+      send(me, { t: 'pong', c: +m.c || 0 });
     } else if (m.t === 'stab' && me) {
       stab(room, me);
     } else if (m.t === 'throw' && me) {

@@ -13,10 +13,32 @@ function edges(half, boxes, kind) {
 }
 function overlaps(a, b, pad) { return Math.abs(a.x - b.x) < (a.w + b.w) / 2 + pad && Math.abs(a.z - b.z) < (a.d + b.d) / 2 + pad; }
 
+// ---------- building blocks: ramps and raised decks ----------
+// ramp: a wedge. rd 0 rises towards +x, 1 towards -x, 2 towards +z, 3 towards -z. h is the height of its high edge.
+const R = (x, z, w, d, h, rd, col, y) => Object.assign(B('ramp', x, z, w, d, h, col, y), { rd });
+// deck: a slab on pillars (players can walk underneath when h >= 2.2); its top is at height h
+function deck(boxes, x, z, w, d, h, col, pillars) {
+  boxes.push(B('plat', x, z, w, d, 0.4, col, h - 0.4));
+  if (pillars !== false) for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) boxes.push(B('pillar', x + sx * (w / 2 - 0.7), z + sz * (d / 2 - 0.7), 0.9, 0.9, h - 0.4));
+}
+// ramp leading up to a deck from one of its sides (0 +x, 1 -x, 2 +z, 3 -z)
+function rampTo(boxes, x, z, w, d, h, side, col, len) {
+  len = len || h * 2.5;
+  if (side === 0) boxes.push(R(x + w / 2 + len / 2, z, len, d, h, 1, col));
+  else if (side === 1) boxes.push(R(x - w / 2 - len / 2, z, len, d, h, 0, col));
+  else if (side === 2) boxes.push(R(x, z + d / 2 + len / 2, w, len, h, 3, col));
+  else boxes.push(R(x, z - d / 2 - len / 2, w, len, h, 2, col));
+}
+// a hill you can slide down: two ramps back to back
+function hill(boxes, x, z, len, wid, h, alongX, col) {
+  if (alongX) boxes.push(R(x - len / 2, z, len, wid, h, 0, col), R(x + len / 2, z, len, wid, h, 1, col));
+  else boxes.push(R(x, z - len / 2, wid, len, h, 2, col), R(x, z + len / 2, wid, len, h, 3, col));
+}
+
 // ---------- fixed arena (deathmatch, first endless wave) ----------
 function arena() {
   const boxes = [];
-  edges(30, boxes, 'wall');
+  edges(44, boxes, 'wall');
   const add = (...a) => boxes.push(B(...a));
   add('brick', -4.25, -5, 5.5, 0.6, 4); add('brick', 4.25, -5, 5.5, 0.6, 4); add('brick', -4.25, 5, 5.5, 0.6, 4); add('brick', 4.25, 5, 5.5, 0.6, 4);
   add('brick', -7, 0, 0.6, 9.4, 4); add('brick', 7, 0, 0.6, 9.4, 4);
@@ -29,7 +51,14 @@ function arena() {
   add('crate', 12, -2, 1.6, 1.6, 2.0); add('crate', -12, 2, 1.6, 1.6, 2.0); add('crate', -22, -14, 1.4, 1.4, 1.0); add('crate', 22, 14, 1.4, 1.4, 1.0);
   add('barrel', -5, -12, 0.9, 0.9, 1.1); add('barrel', 5, 12, 0.9, 0.9, 1.1); add('barrel', -22, 10, 0.9, 0.9, 1.1); add('barrel', 22, -10, 0.9, 0.9, 1.1);
   add('barrel', 0, -10, 0.9, 0.9, 1.1); add('barrel', 0, 10, 0.9, 0.9, 1.1);
-  return { id: 'arena', name: 'Arena', th: 'arena', half: 30, boxes, spawns: [[0, 24], [0, -24], [24, 0], [-24, 0], [-27, -27], [27, 27], [-27, 27], [27, -27]] };
+  // outer ring: corner towers with two ramps each, long raised lanes on the north and south edge, slide hills
+  const T = 0x7d8794;
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { deck(boxes, sx * 36, sz * 36, 10, 10, 3.6, T); rampTo(boxes, sx * 36, sz * 36, 10, 10, 3.6, sx > 0 ? 1 : 0, T); rampTo(boxes, sx * 36, sz * 36, 10, 10, 3.6, sz > 0 ? 3 : 2, T); }
+  for (const sz of [-1, 1]) { deck(boxes, 0, sz * 39, 18, 5, 3.6, T); rampTo(boxes, 0, sz * 39, 18, 5, 3.6, 0, T); rampTo(boxes, 0, sz * 39, 18, 5, 3.6, 1, T); }
+  hill(boxes, -37, 0, 5, 7, 1.8, true, 0x8a8f99); hill(boxes, 37, 0, 5, 7, 1.8, true, 0x8a8f99);
+  add('crate', -30, 30, 1.4, 1.4, 1.0); add('crate', 30, -30, 1.4, 1.4, 1.0); add('crate', -26, -30, 1.4, 1.4, 2.0); add('crate', 26, 30, 1.4, 1.4, 2.0);
+  add('cont', -30, -18, 6.2, 2.5, 2.6, 4160847); add('cont', 30, 18, 6.2, 2.5, 2.6, 11022893); add('barrier', -20, 30, 3, 0.6, 1.0); add('barrier', 20, -30, 3, 0.6, 1.0);
+  return { id: 'arena', name: 'Arena', th: 'arena', half: 44, boxes, spawns: ringSpawns(44) };
 }
 
 // ---------- more deathmatch maps ----------
@@ -49,14 +78,18 @@ function ringSpawns(half) {
 }
 // Dust Bowl: sandstone temple ruins in the desert
 function dust() {
-  const r = rng(501), half = 30, boxes = [], S = 0xc9a066, add = (...a) => boxes.push(B(...a));
+  const r = rng(501), half = 44, boxes = [], S = 0xc9a066, add = (...a) => boxes.push(B(...a));
   edges(half, boxes, 'edge');
   add('block', -7.5, -8, 9, 0.9, 3.6, S); add('block', 7.5, -8, 9, 0.9, 3.6, S); add('block', -7.5, 8, 9, 0.9, 3.6, S); add('block', 7.5, 8, 9, 0.9, 3.6, S);
   add('block', -12, -3.5, 0.9, 8, 3.6, S); add('block', -12, 3.5, 0.9, 8, 3.6, S); add('block', 12, -3.5, 0.9, 8, 3.6, S); add('block', 12, 3.5, 0.9, 8, 3.6, S);
   for (const [x, z] of [[-4.5, -4.5], [4.5, -4.5], [-4.5, 4.5], [4.5, 4.5]]) add('pillar', x, z, 1.3, 1.3, 4.6);
   add('stone', 0, 0, 3.2, 3.2, 0.9); add('stone', 0, 0, 1.6, 1.6, 1.8);
+  // raised sandstone terraces north and south, with slide dunes between the temple and the walls
+  for (const sz of [-1, 1]) { deck(boxes, 0, sz * 36, 16, 6, 4, S); rampTo(boxes, 0, sz * 36, 16, 6, 4, 0, S); rampTo(boxes, 0, sz * 36, 16, 6, 4, 1, S); }
+  for (const sx of [-1, 1]) { deck(boxes, sx * 34, 0, 6, 12, 2.8, S); rampTo(boxes, sx * 34, 0, 6, 12, 2.8, 2, S); rampTo(boxes, sx * 34, 0, 6, 12, 2.8, 3, S); }
+  hill(boxes, -24, -22, 11, 8, 2.4, true, S); hill(boxes, 24, 22, 11, 8, 2.4, true, S); hill(boxes, 24, -22, 8, 11, 2.4, false, S); hill(boxes, -24, 22, 8, 11, 2.4, false, S);
   const avoid = (x, z) => Math.abs(x) < 13.5 && Math.abs(z) < 9.5;
-  scatter(boxes, r, 9, (x, z) => { const s2 = 2 + r() * 2.2; return B('rock', x, z, s2, s2 * (0.8 + r() * 0.4), 0.9 + r() * 0.25); }, avoid, 1.2, half);
+  scatter(boxes, r, 14, (x, z) => { const s2 = 2 + r() * 2.2; return B('rock', x, z, s2, s2 * (0.8 + r() * 0.4), 0.9 + r() * 0.25); }, avoid, 1.2, half);
   scatter(boxes, r, 10, (x, z) => { const s2 = 1.3 + r() * 0.3; return B('crate', x, z, s2, s2, r() < 0.5 ? 1.0 : 2.0); }, avoid, 1.0, half);
   scatter(boxes, r, 8, (x, z) => (r() < 0.5 ? B('block', x, z, 5 + r() * 2, 0.8, 1.1, S) : B('block', x, z, 0.8, 5 + r() * 2, 1.1, S)), avoid, 1.3, half);
   scatter(boxes, r, 6, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
@@ -64,13 +97,14 @@ function dust() {
 }
 // Frostbite: ice blocks and a snowed-in bunker
 function frost() {
-  const r = rng(733), half = 30, boxes = [], ICE = 0x9fd0ea, SNOW = 0xe9f1f7, add = (...a) => boxes.push(B(...a));
+  const r = rng(733), half = 42, boxes = [], ICE = 0x9fd0ea, SNOW = 0xe9f1f7, add = (...a) => boxes.push(B(...a));
   edges(half, boxes, 'edge');
-  add('block', -5.5, -6, 6, 0.8, 3.2, SNOW); add('block', 5.5, -6, 6, 0.8, 3.2, SNOW); add('block', -5.5, 6, 6, 0.8, 3.2, SNOW); add('block', 5.5, 6, 6, 0.8, 3.2, SNOW);
-  add('block', -8.4, 0, 0.8, 8, 3.2, SNOW); add('block', 8.4, 0, 0.8, 8, 3.2, SNOW);
-  add('block', 0, 0, 2.4, 2.4, 1.4, ICE);
-  const avoid = (x, z) => Math.abs(x) < 10 && Math.abs(z) < 8;
-  scatter(boxes, r, 14, (x, z) => { const s2 = 1.6 + r() * 2.6; return B('block', x, z, s2, s2 * (0.7 + r() * 0.6), 1.2 + r() * 2.4, ICE); }, avoid, 1.3, half);
+  // ice pyramid in the middle (ramps on all four sides), half-pipes on both flanks, snow forts in the corners
+  deck(boxes, 0, 0, 8, 8, 3.8, ICE, false); for (let s2 = 0; s2 < 4; s2++) rampTo(boxes, 0, 0, 8, 8, 3.8, s2, ICE, 9);
+  for (const sx of [-1, 1]) { boxes.push(R(sx * 27, -7, 12, 8, 3, sx > 0 ? 1 : 0, ICE), R(sx * 27, 7, 12, 8, 3, sx > 0 ? 1 : 0, ICE)); hill(boxes, sx * 27, 0, 7, 6, 1.4, true, SNOW); }
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { add('block', sx * 33, sz * 33, 7, 0.8, 3.2, SNOW); add('block', sx * 36.4, sz * 29.6, 0.8, 6.4, 3.2, SNOW); add('block', sx * 30, sz * 36, 0.8, 5, 3.2, SNOW); }
+  const avoid = (x, z) => Math.abs(x) < 16 && Math.abs(z) < 16 || (Math.abs(x) > 19 && Math.abs(x) < 35 && Math.abs(z) < 12);
+  scatter(boxes, r, 22, (x, z) => { const s2 = 1.6 + r() * 2.6; return B('block', x, z, s2, s2 * (0.7 + r() * 0.6), 1.2 + r() * 2.4, ICE); }, avoid, 1.3, half);
   scatter(boxes, r, 12, (x, z) => { const s2 = 2 + r() * 2.5; return B('block', x, z, s2, s2, 0.5 + r() * 0.6, SNOW); }, avoid, 1.0, half);
   scatter(boxes, r, 8, (x, z) => B('crate', x, z, 1.4, 1.4, r() < 0.5 ? 1.0 : 2.0), avoid, 1.0, half);
   scatter(boxes, r, 5, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
@@ -78,13 +112,18 @@ function frost() {
 }
 // Night Woods: dark forest clearing with a cabin
 function woods() {
-  const r = rng(917), half = 34, boxes = [], W = 0x5a3f2a, add = (...a) => boxes.push(B(...a));
+  const r = rng(917), half = 50, boxes = [], W = 0x5a3f2a, add = (...a) => boxes.push(B(...a));
   edges(half, boxes, 'edge');
-  add('block', -3.5, -5, 6, 0.6, 3, W); add('block', 3.5, -5, 6, 0.6, 3, W); add('block', -3.5, 5, 6, 0.6, 3, W); add('block', 3.5, 5, 6, 0.6, 3, W);
-  add('block', -6.5, 0, 0.6, 10.6, 3, W); add('block', 6.5, -2.5, 0.6, 5, 3, W); add('block', 6.5, 3.8, 0.6, 2.6, 3, W);
+  // treehouse: a big deck in the middle, rope bridges to two outpost decks, log ramps up
+  deck(boxes, 0, 0, 12, 12, 4.4, W); rampTo(boxes, 0, 0, 12, 12, 4.4, 2, W, 11); rampTo(boxes, 0, 0, 12, 12, 4.4, 3, W, 11);
+  for (const sx of [-1, 1]) {
+    deck(boxes, sx * 10.5, 0, 9, 3, 4.4, W, false); boxes.push(B('pillar', sx * 10.5, 0, 0.9, 0.9, 4.0));
+    deck(boxes, sx * 24, 0, 10, 10, 4.4, W); rampTo(boxes, sx * 24, 0, 10, 10, 4.4, sx > 0 ? 0 : 1, W, 11); rampTo(boxes, sx * 24, 0, 10, 10, 4.4, 2, W, 11);
+    hill(boxes, sx * 38, -20, 9, 6, 2, false, W);
+  }
   add('crate', 0, 0, 1.5, 1.5, 1.0);
-  const avoid = (x, z) => Math.abs(x) < 9 && Math.abs(z) < 7.5;
-  scatter(boxes, r, 70, (x, z) => B('tree', x, z, 0.9, 0.9, 9), avoid, 2.8, half);
+  const avoid = (x, z) => (Math.abs(x) < 31 && Math.abs(z) < 19) || (Math.abs(x) > 33 && Math.abs(x) < 43 && Math.abs(z) > 10 && Math.abs(z) < 30);
+  scatter(boxes, r, 100, (x, z) => B('tree', x, z, 0.9, 0.9, 9), avoid, 2.8, half);
   scatter(boxes, r, 12, (x, z) => { const s2 = 1.4 + r() * 1.6; return B('rock', x, z, s2, s2 * (0.7 + r() * 0.5), 0.6 + r() * 0.55); }, avoid, 1.0, half);
   scatter(boxes, r, 12, (x, z) => (r() < 0.5 ? B('log', x, z, 4 + r(), 0.8, 0.8) : B('log', x, z, 0.8, 4 + r(), 0.8)), avoid, 1.0, half);
   scatter(boxes, r, 5, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
@@ -92,16 +131,18 @@ function woods() {
 }
 // Reactor: industrial core with catwalks
 function reactor() {
-  const r = rng(1201), half = 30, boxes = [], add = (...a) => boxes.push(B(...a));
+  const r = rng(1201), half = 44, boxes = [], add = (...a) => boxes.push(B(...a));
   edges(half, boxes, 'wall');
   add('pipe', 0, 0, 5, 5, 8);
   for (const [x, z] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) add('pipe', x, z, 1.2, 1.2, 8);
   add('cont', -15, -4, 2.5, 6.2, 2.6, 2973608); add('cont', 15, 4, 2.5, 6.2, 2.6, 11022893); add('cont', 4, -15, 6.2, 2.5, 2.6, 4160847); add('cont', -4, 15, 6.2, 2.5, 2.6, 13071403);
   // catwalks (top at 3.0) reached by crate stairs
-  add('plat', 0, -23, 20, 3, 0.3, 0x5a5f68, 2.7); add('crate', -11.2, -23, 1.6, 1.6, 2.0); add('crate', -13.2, -23, 1.6, 1.6, 1.0);
-  add('plat', 0, 23, 20, 3, 0.3, 0x5a5f68, 2.7); add('crate', 11.2, 23, 1.6, 1.6, 2.0); add('crate', 13.2, 23, 1.6, 1.6, 1.0);
-  const avoid = (x, z) => Math.hypot(x, z) < 7 || (Math.abs(z) > 20 && Math.abs(x) < 16);
-  scatter(boxes, r, 14, (x, z) => { const s2 = 1.3 + r() * 0.4; return B('crate', x, z, s2, s2, r() < 0.5 ? 1.0 : 2.0); }, avoid, 1.0, half);
+  const G = 0x5a5f68;
+  for (const sz of [-1, 1]) { deck(boxes, 0, sz * 24, 22, 4, 3.2, G); rampTo(boxes, 0, sz * 24, 22, 4, 3.2, 0, G); rampTo(boxes, 0, sz * 24, 22, 4, 3.2, 1, G); }
+  for (const sx of [-1, 1]) { deck(boxes, sx * 36, 0, 5, 22, 3.2, G); rampTo(boxes, sx * 36, 0, 5, 22, 3.2, 2, G); rampTo(boxes, sx * 36, 0, 5, 22, 3.2, 3, G); }
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { deck(boxes, sx * 36, sz * 36, 8, 8, 5.2, G); rampTo(boxes, sx * 36, sz * 36, 8, 8, 5.2, sx > 0 ? 1 : 0, G, 13); add('cont', sx * 22, sz * 28, 6.2, 2.5, 2.6, sz > 0 ? 2973608 : 11022893); }
+  const avoid = (x, z) => Math.hypot(x, z) < 7 || (Math.abs(z) > 20 && Math.abs(x) < 24) || (Math.abs(x) > 30 && Math.abs(z) < 14) || (Math.abs(x) > 30 && Math.abs(z) > 30);
+  scatter(boxes, r, 22, (x, z) => { const s2 = 1.3 + r() * 0.4; return B('crate', x, z, s2, s2, r() < 0.5 ? 1.0 : 2.0); }, avoid, 1.0, half);
   scatter(boxes, r, 8, (x, z) => B('barrel', x, z, 0.9, 0.9, 1.1), avoid, 0.8, half);
   scatter(boxes, r, 8, (x, z) => B('barrier', x, z, 3, 0.6, 1.0), avoid, 1.2, half);
   return { id: 'reactor', name: 'Reactor', th: 'factory', half, boxes, spawns: ringSpawns(half) };
@@ -121,7 +162,8 @@ const PK_INFO = [
   { th: 'neon', name: 'Neon City', col: 0x2b1b55 },
   { th: 'space', name: 'Outer Space', col: 0x3a3a5a }
 ];
-const PK_LEVELS = PK_INFO.length;
+const PK_PARKOUR = PK_INFO.length;
+const PK_LEVELS = PK_PARKOUR + 10;     // 10 parkour levels, then 10 surf maps
 function airtime(dy) { const disc = 49 - 40 * dy; return disc < 0 ? 0 : (7 + Math.sqrt(disc)) / 20; }
 function gapDist(a, b) {
   const dx = Math.max(0, Math.abs(a.x - b.x) - (a.w + b.w) / 2), dz = Math.max(0, Math.abs(a.z - b.z) - (a.d + b.d) / 2);
@@ -129,7 +171,7 @@ function gapDist(a, b) {
 }
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
 function parkour(L) {
-  const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = (L - 1) / (PK_LEVELS - 1), band = PK_INFO[L - 1];
+  const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = (L - 1) / (PK_PARKOUR - 1), band = PK_INFO[L - 1];
   const f = 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [];     // gentler than before: shorter gaps, bigger platforms
   const N = 10 + Math.round(L * 2.2);
   const col = band.col;
@@ -174,8 +216,92 @@ function parkour(L) {
   for (const p of plats) { minY = Math.min(minY, p.top); maxY = Math.max(maxY, p.top); minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
   return {
     id: 'pk' + L, name: 'Level ' + L + ' - ' + band.name, biome: band.th, th: band.th, half: 2000, boxes, spawns: [[0, 0]], pk: {
-      lv: L, n: PK_LEVELS, start: [0, 0, 0], cps: [], fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
+      lv: L, n: PK_PARKOUR, start: [0, 0, 0], cps: [], fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
       bounds: [minX - 20, maxX + 20, minZ - 20, maxZ + 20, minY, maxY]
+    }
+  };
+}
+
+
+// ---------- surf (server levels 11 to 20 = surf maps 1 to 10) ----------
+// A surf ramp is a tilted plane (kind 'surf'): footprint = rectangle turned by th, height of the top face = y + gx*(x-cx) + gz*(z-cz).
+// Players do not stand on it: the client slides them along it (velocity clipped against the plane, like CS:S surf).
+const SF_BASE = 10;
+const SF_INFO = [
+  { th: 'ice', name: 'Rookie Slide', col: 0xbfe3f5 },
+  { th: 'desert', name: 'Sunset Dunes', col: 0xe0a860 },
+  { th: 'forest', name: 'Pine Drift', col: 0x6b8f4e },
+  { th: 'water', name: 'Tidal Surf', col: 0x4aa8d8 },
+  { th: 'neon', name: 'Neon Highway', col: 0x7a4dff },
+  { th: 'cave', name: 'Crystal Chute', col: 0x9b6bff },
+  { th: 'factory', name: 'Rusty Spiral', col: 0xc08a50 },
+  { th: 'volcano', name: 'Magma Rush', col: 0xe0552a },
+  { th: 'abyss', name: 'Abyss Run', col: 0x2ac0c8 },
+  { th: 'space', name: 'Orbital Gauntlet', col: 0x8a8aff }
+];
+function surf(L) {
+  const r = rng(L * 104729 + 77), d = (L - 1) / 9, info = SF_INFO[L - 1];
+  const boxes = [], path = [], col = info.col;
+  const O = { gD: 0.2, gC: 1.45 + 0.15 * d, wr: 12 - 3 * d, ov: 1.3 };
+  const start = B('start', 0, 0, 7, 7, 0.7, col, -0.7); start.top = 0; boxes.push(start);
+  let tag = 'start';
+  const st = { x: 0, z: -3.5, phi: -Math.PI / 2, y: 0, s: 0 };
+  // lays one pair of tiles (one tile if only one side is asked for) of length seg while the heading turns by dphi
+  function lay(seg, dphi, o) {
+    const pm = st.phi + dphi / 2, fx = Math.cos(pm), fz = Math.sin(pm), lx = -fz, lz = fx;
+    const mx = st.x + fx * seg / 2, mz = st.z + fz * seg / 2, yMid = st.y - o.gD * seg / 2;
+    for (const sg of (o.sides || [-1, 1])) {
+      const off = sg * o.wr / 2, cx = mx + lx * off, cz = mz + lz * off;
+      const b = B('surf', cx, cz, seg + o.ov, o.wr, 1.2, col, yMid + o.gC * o.wr / 2);
+      b.th = pm; b.gx = -o.gD * fx + o.gC * sg * lx; b.gz = -o.gD * fz + o.gC * sg * lz; boxes.push(b);
+    }
+    st.x += fx * seg; st.z += fz * seg; st.y -= o.gD * seg; st.phi += dphi; st.s += seg;
+    path.push([st.x, st.z, st.y, tag]);
+  }
+  const run = (len, o) => { const n = Math.max(1, Math.round(len / 14)); for (let i = 0; i < n; i++) lay(len / n, 0, o || O); };
+  const curve = (deg, R, o) => { const sg = deg < 0 ? -1 : 1, seg = 4, n = Math.max(2, Math.round(Math.abs(deg) * Math.PI / 180 * R / seg)); for (let i = 0; i < n; i++) lay(seg, sg * seg / R, o || O); };
+  const fly = (len, off) => {      // nothing underneath: the next pipe starts after a jump (optionally shifted sideways)
+    const fx = Math.cos(st.phi), fz = Math.sin(st.phi); st.x += fx * len - fz * (off || 0); st.z += fz * len + fx * (off || 0); st.y -= O.gD * len; st.s += len; path.push([st.x, st.z, st.y, tag]);
+  };
+  const total = 250 + 140 * (L - 1);
+  run(36);
+  let k = 0;
+  while (st.s < total) {
+    k++;
+    const p = r(), sgn = r() < 0.5 ? -1 : 1;
+    const feats = [];
+    if (L >= 2) feats.push('fast');
+    if (L >= 3) feats.push('gap');
+    if (L >= 4) feats.push('narrow');
+    if (L >= 5) feats.push('slow');
+    if (L >= 6) feats.push('long gap');
+    if (L >= 8) feats.push('s-bend');
+    tag = 'run'; if (p < 0.3 || (k === 1)) run(24 + r() * 30);
+    else if (p < 0.62 || !feats.length) { tag = 'curve'; curve(sgn * (35 + r() * (40 + 70 * d)), 70 - 36 * d - r() * 8); }
+    else {
+      const f = feats[Math.floor(r() * feats.length)]; tag = f;
+      if (f === 'fast') run(34 + r() * 20, Object.assign({}, O, { gD: 0.36 + 0.14 * d }));
+      else if (f === 'slow') run(30 + r() * 15, Object.assign({}, O, { gD: -0.02 }));
+      else if (f === 'narrow') run(34 + r() * 24, Object.assign({}, O, { wr: 7.5 - 1.5 * d }));
+      else if (f === 'gap') { run(10); run(8, Object.assign({}, O, { gD: -0.35 })); fly(5 + 5 * d + r() * 3, sgn * r() * 3 * d); run(18); }
+      else if (f === 'long gap') { run(14, Object.assign({}, O, { gD: 0.3 })); run(8, Object.assign({}, O, { gD: -0.4 })); fly(12 + 8 * d + r() * 4, sgn * r() * 5 * d); run(20); }
+      else if (f === 's-bend') { curve(sgn * 50, 58 - 24 * d); curve(-sgn * 50, 58 - 24 * d); }
+    }
+  }
+  run(24);
+  // finish pad ahead of the last tile, level with the pipe
+  const fx = Math.cos(st.phi), fz = Math.sin(st.phi), fxp = st.x + fx * 11, fzp = st.z + fz * 11, fy = st.y - 0.25;
+  const fin = B('finish', fxp, fzp, 18, 18, 0.7, col, fy - 0.7); fin.top = fy; boxes.push(fin);
+  let minY = 0, maxY = 0, minX = 0, maxX = 0, minZ = 0, maxZ = 0;
+  for (const b of boxes) {
+    const hi = b.kind === 'surf' ? b.y + 0.5 * (Math.abs(b.gx) + Math.abs(b.gz)) * Math.max(b.w, b.d) : b.y + b.h, lo = b.kind === 'surf' ? b.y - 0.5 * (Math.abs(b.gx) + Math.abs(b.gz)) * Math.max(b.w, b.d) - b.h : b.y;
+    minY = Math.min(minY, lo); maxY = Math.max(maxY, hi); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x); minZ = Math.min(minZ, b.z); maxZ = Math.max(maxZ, b.z);
+  }
+  const lv = SF_BASE + L;
+  return {
+    id: 'pk' + lv, name: 'Surf ' + L + ' - ' + info.name, biome: info.th, th: info.th, half: 2000, boxes, spawns: [[0, 0]], path, pk: {
+      lv, n: PK_LEVELS, surf: 1, vmax: 38, finR: 9, start: [0, 0, 0], cps: [], fin: [fxp, fy, fzp], kill: minY - 12, pathLen: st.s,
+      bounds: [minX - 30, maxX + 30, minZ - 30, maxZ + 30, minY, maxY]
     }
   };
 }
@@ -189,7 +315,8 @@ function getMap(id) {
   else if (id === 'frost') m = frost();
   else if (id === 'woods') m = woods();
   else if (id === 'reactor') m = reactor();
-  else if ((k = /^pk(\d+)$/.exec(id)) && +k[1] >= 1 && +k[1] <= PK_LEVELS) m = parkour(+k[1]);
+  else if ((k = /^pk(\d+)$/.exec(id)) && +k[1] >= 1 && +k[1] <= PK_PARKOUR) m = parkour(+k[1]);
+  else if (k && +k[1] > PK_PARKOUR && +k[1] <= PK_LEVELS) m = surf(+k[1] - PK_PARKOUR);
   if (!m) return null;
   // make sure every spawn point is out of every box
   m.spawns = m.spawns.map(([x, z]) => {
@@ -199,9 +326,14 @@ function getMap(id) {
     }
     return [x, z];
   });
-  m.wire = JSON.stringify({ t: 'map', id: m.id, name: m.name, th: m.th, half: m.half, b: m.boxes.map((b) => [b.kind, +b.x.toFixed(2), +b.z.toFixed(2), +b.w.toFixed(2), +b.d.toFixed(2), +b.h.toFixed(2), b.col, +b.y.toFixed(2)]), pk: m.pk || null });
+  m.wire = JSON.stringify({ t: 'map', id: m.id, name: m.name, th: m.th, half: m.half, b: m.boxes.map((b) => [b.kind, +b.x.toFixed(2), +b.z.toFixed(2), +b.w.toFixed(2), +b.d.toFixed(2), +b.h.toFixed(2), b.col, +b.y.toFixed(2), b.rd | 0].concat(b.kind === 'surf' ? [+b.th.toFixed(4), +b.gx.toFixed(4), +b.gz.toFixed(4)] : [])), pk: m.pk || null });
   cache.set(id, m);
   return m;
 }
 function setSalt(L, v) { PK_SALT[L] = v; cache.delete('pk' + L); }
-module.exports = { setSalt, getMap, DM_MAPS, PK_LEVELS, PK_INFO, airtime, gapDist };
+// a ramp is a wedge: rd 0 rises towards +x, 1 towards -x, 2 towards +z, 3 towards -z
+function rampH(b, x, z) {
+  const t = b.rd === 0 ? (x - (b.x - b.w / 2)) / b.w : b.rd === 1 ? 1 - (x - (b.x - b.w / 2)) / b.w : b.rd === 2 ? (z - (b.z - b.d / 2)) / b.d : 1 - (z - (b.z - b.d / 2)) / b.d;
+  return b.y + b.h * Math.max(0, Math.min(1, t));
+}
+module.exports = { SF_BASE, SF_INFO, PK_PARKOUR, rampH, setSalt, getMap, DM_MAPS, PK_LEVELS, PK_INFO, airtime, gapDist };

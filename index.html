@@ -130,7 +130,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 #speed small { font-family: var(--body); font-weight: 500; font-size: 0.65rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-left: 6px; }
 #speed.fast { color: #ffd166; }
 .card { max-height: calc(100% - 8px); overflow-y: auto; }
-.modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 0 0 14px; }
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 14px; }
 .mode { text-align: left; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0,0,0,0.25); color: var(--ink); cursor: pointer; font: 500 0.78rem var(--body); line-height: 1.3; }
 .mode b { display: block; font-family: var(--display); font-size: 0.78rem; margin-bottom: 4px; }
 .mode[aria-checked="true"] { border-color: var(--accent); background: rgba(180,107,255,0.2); box-shadow: 0 0 0 1px var(--accent); }
@@ -218,6 +218,7 @@ canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 #bhud .row { display: flex; gap: 14px; justify-content: center; font: 800 0.85rem var(--body); letter-spacing: 0.06em; }
 #bhud .row span { opacity: 0.9; }
 #bhcombo.hot { color: #ffd166; }
+#bhud.sf .row { display: none; }
 body.touch #bhud { bottom: auto; top: 11vh; }
 body.touch #bhud .sp { font-size: 1.7rem; }
 body.touch #bhbar { width: 150px; }
@@ -421,6 +422,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     <div class="modes" id="modes" role="radiogroup" aria-label="Game mode">
       <button class="mode" type="button" role="radio" data-mode="dm"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><b>Deathmatch</b>Players against players. 1:30 matches, most kills wins.</button>
       <button class="mode" type="button" role="radio" data-mode="pk"><svg viewBox="0 0 24 24"><path d="M3 20h5v-4h5v-4h5V8h3"/><path d="M15 4l3-2 3 2"/></svg><b>Parkour</b>10 levels in 10 biomes, bunny hop, best times per level.</button>
+      <button class="mode" type="button" role="radio" data-mode="sf"><svg viewBox="0 0 24 24"><path d="M3 5l18 6-18 9V5z"/><path d="M3 20h18"/></svg><b>Surf</b>10 maps of steep ramps. Glide, steer and carry your speed.</button>
     </div>
     <div id="pkpick" hidden><button id="pkprev" type="button" aria-label="Previous level">&lsaquo;</button><div><span id="pklv">Level 1</span><small id="pkpb"></small></div><button id="pknext" type="button" aria-label="Next level">&rsaquo;</button></div>
     <button id="tutbtn" class="ghost" type="button" hidden>&#9654; Learn to bunny hop (tutorial)</button>
@@ -517,6 +519,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
   const MODES = { dm: 'Deathmatch', camp: 'Campaign', endless: 'Endless', pk: 'Parkour' };
   const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space'];
   const PK_N = PK_NAMES.length;
+  const SF_NAMES = ['Rookie Slide', 'Sunset Dunes', 'Pine Drift', 'Tidal Surf', 'Neon Highway', 'Crystal Chute', 'Rusty Spiral', 'Magma Rush', 'Abyss Run', 'Orbital Gauntlet'], SF_BASE = 10;
+  const lvLabel = (L) => (L > SF_BASE ? 'Surf ' + (L - SF_BASE) : 'Level ' + L);
+  const curLv = () => (cfg.mode === 'sf' ? SF_BASE + Math.max(1, Math.min(10, cfg.sfLevel | 0 || 1)) : cfg.pkLevel);
   // weapon skins, unlocked with your total kills over all matches (saved in this browser)
   const SKINS = [
     { name: 'Standard', kills: 0, body: '#2b2d33', accent: '#555962', pat: 'none' },
@@ -539,9 +544,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function savePk() { try { localStorage.setItem('parena_pk_pb2', JSON.stringify(pkPB)); } catch (e) {} }
 
   // ---------- settings and wallet (saved in this browser) ----------
-  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0, ks: true, assist: true, fwd: true };
+  const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0, ks: true, assist: true, fwd: true, sfLevel: 1 };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem('parena_online3') || '{}')); } catch (e) {}
-  if (cfg.mode !== 'dm' && cfg.mode !== 'pk') cfg.mode = 'dm';
+  if (cfg.mode !== 'dm' && cfg.mode !== 'pk' && cfg.mode !== 'sf') cfg.mode = 'dm';
   if (!skinOk(cfg.skin)) cfg.skin = 0;
   function saveCfg() { try { localStorage.setItem('parena_online3', JSON.stringify(cfg)); } catch (e) {} }
   const wallet = { coins: 0, owned: ['rifle'], equipped: 'rifle' };
@@ -593,21 +598,25 @@ body.touch #tutcap span { font-size: 0.78rem; }
   }
   function renderModes() {
     document.querySelectorAll('.mode').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === cfg.mode)));
-    const m = { pk: '10 levels, 10 biomes, all open. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
+    const m = { sf: 'Surf: slide down steep ramps. Aim along the ramp and lean into it with A / D (or the arrows) to keep your speed. Jump off the end to cross gaps. Falling sends you back to the start.', pk: '10 levels, 10 biomes, all open. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
     if (state === 'menu') setMsg(m[cfg.mode]);
   }
   document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); rpRender(); }));
   function renderPick() {
-    $('pkpick').hidden = cfg.mode !== 'pk'; $('tutbtn').hidden = cfg.mode !== 'pk';
-    cfg.pkLevel = Math.max(1, Math.min(pkUnlocked, cfg.pkLevel || 1));
-    const L = cfg.pkLevel;
-    $('pklv').textContent = 'Level ' + L + ' - ' + PK_NAMES[L - 1];
-    $('pkpb').textContent = pkPB[L] ? 'Your best: ' + fmtT(pkPB[L]) : 'No time yet';
-    $('pkprev').disabled = L <= 1; $('pknext').disabled = L >= PK_N;
+    const sf = cfg.mode === 'sf';
+    $('pkpick').hidden = cfg.mode !== 'pk' && !sf; $('tutbtn').hidden = cfg.mode !== 'pk';
+    let L, name, max;
+    if (sf) { cfg.sfLevel = Math.max(1, Math.min(10, cfg.sfLevel | 0 || 1)); L = cfg.sfLevel; name = 'Surf ' + L + ' - ' + SF_NAMES[L - 1]; max = 10; }
+    else { cfg.pkLevel = Math.max(1, Math.min(pkUnlocked, cfg.pkLevel || 1)); L = cfg.pkLevel; name = 'Level ' + L + ' - ' + PK_NAMES[L - 1]; max = PK_N; }
+    $('pklv').textContent = name;
+    const pb = pkPB[sf ? SF_BASE + L : L];
+    $('pkpb').textContent = pb ? 'Your best: ' + fmtT(pb) : 'No time yet';
+    $('pkprev').disabled = L <= 1; $('pknext').disabled = L >= max;
     if (state === 'menu') rpRender();
   }
-  $('pkprev').addEventListener('click', () => { cfg.pkLevel--; saveCfg(); renderPick(); });
-  $('pknext').addEventListener('click', () => { cfg.pkLevel++; saveCfg(); renderPick(); });
+  const pickMove = (dlt) => { if (cfg.mode === 'sf') cfg.sfLevel = (cfg.sfLevel | 0 || 1) + dlt; else cfg.pkLevel += dlt; saveCfg(); renderPick(); };
+  $('pkprev').addEventListener('click', () => pickMove(-1));
+  $('pknext').addEventListener('click', () => pickMove(1));
 
   // ---------- procedural textures ----------
   function tex(w, h, draw, repeatX, repeatY) {
@@ -738,6 +747,30 @@ body.touch #tutcap span { font-size: 0.78rem; }
     b.tx.needsUpdate = true;
   }
 
+  // one merged mesh for all the surf planes: every face has its own vertices (flat shading); the top face carries the stripe texture coordinates
+  function surfAdd(g, cx, cz, w, d, T, yc, th, gx, gz) {
+    const c = Math.cos(th), s = Math.sin(th), hw = w / 2, hd = d / 2, uv = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
+    const top = uv.map(([u, v]) => { const dx = u * c - v * s, dz = u * s + v * c; return [cx + dx, yc + gx * dx + gz * dz, cz + dz, u, v]; });
+    const bot = top.map((q) => [q[0], q[1] - T, q[2], q[3], q[4]]);
+    const tri = (a, b, e) => { for (const q of [a, b, e]) { g.pos.push(q[0], q[1], q[2]); g.uv.push(q[3] / 7, q[4] / 7); } };
+    const quad = (a, b, e, f) => { tri(a, b, e); tri(a, e, f); };
+    quad(top[0], top[3], top[2], top[1]);               // top face, wound so its normal points up
+    quad(bot[0], bot[1], bot[2], bot[3]);               // underside
+    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; quad(top[i], top[j], bot[j], bot[i]); }
+  }
+  function surfMesh(g) {
+    if (!g.pos.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.addAttribute ? geo.addAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3)) : geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
+    (geo.addAttribute ? geo.addAttribute : geo.setAttribute).call(geo, 'uv', new THREE.Float32BufferAttribute(g.uv, 2));
+    geo.computeVertexNormals();
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+    x.fillStyle = '#d7d9e4'; x.fillRect(0, 0, 128, 128); x.fillStyle = '#8a7fd0'; x.fillRect(0, 0, 128, 6); x.fillRect(0, 64, 128, 3); x.fillStyle = 'rgba(255,255,255,.55)'; x.fillRect(0, 96, 128, 2);
+    const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+    const base = new THREE.Color(g.col);
+    const mat = new THREE.MeshLambertMaterial({ color: base, map: tx, emissive: base.clone().multiplyScalar(0.22), side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = true; mesh.frustumCulled = false; world.add(mesh);
+  }
   function buildWorld(msg) {
     disposeWorld();
     const th = THEMES[msg.th] || THEMES.arena, pk = msg.pk, fm = pk ? 1.8 : 1;
@@ -780,10 +813,11 @@ body.touch #tutcap span { font-size: 0.78rem; }
       const grid = new THREE.GridHelper(1200, 240, 0xb46bff, 0x4a1c8a); grid.position.y = pk.kill + 1.1; grid.userData.follow = 2; world.add(grid);
     }
     // boxes
-    const trees = [], crystals = [], propPlats = [];
+    const trees = [], crystals = [], propPlats = [], sfg = { pos: [], uv: [], col: 0xffffff };
     for (const e of msg.b) {
       const kind = e[0], x = e[1], z = e[2], w = e[3], d = e[4], h = e[5], col = e[6], y0 = e[7] || 0;
       boxes.push({ x, z, w, d, h, y: y0, rd: kind === 'ramp' ? (e[8] | 0) : -1 });
+      if (kind === 'surf') { surfMake(boxes[boxes.length - 1], e[9], e[10], e[11]); sfg.col = col; surfAdd(sfg, x, z, w, d, h, y0, e[9], e[10], e[11]); continue; }
       if (kind === 'tree') { trees.push([x, z, h]); continue; }
       let geo;
       if (kind === 'barrel' || kind === 'pipe' || kind === 'pillar') geo = new THREE.CylinderGeometry(w / 2, w / 2, h, 14);
@@ -813,6 +847,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
         if (el) mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: el })));
       }
     }
+    surfMesh(sfg);
     // (platform props removed: parkour platforms stay clean)
     if (trees.length) buildTrees(trees);
     if (th.crystals) crystals.slice(0, 5).forEach((c) => { const l = new THREE.PointLight(0x9b6bff, 1.4, 15, 1.6); l.position.set(c[0], c[2] * 0.8, c[1]); world.add(l); });
@@ -963,12 +998,40 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function refreshBoards() {
     const pk = mapInfo.pk; if (!pk || !boardStart) return;
     const b = lbCache[pk.lv] || {}, rows = [b.d, b.m, b.a][pkPeriod] || [];
-    drawBoard(boardStart, 'LEVEL ' + pk.lv, rows, null, pkPeriod);
-    drawBoard(boardFin, 'FINISH - LEVEL ' + pk.lv, rows, pkDone ? pkTime : null, pkPeriod);
+    drawBoard(boardStart, lvLabel(pk.lv).toUpperCase(), rows, null, pkPeriod);
+    drawBoard(boardFin, 'FINISH - ' + lvLabel(pk.lv).toUpperCase(), rows, pkDone ? pkTime : null, pkPeriod);
   }
   function nextPeriod(manual) { pkPeriod = (pkPeriod + 1) % 3; if (manual) pkPerAt = performance.now(); refreshBoards(); if (manual) banner(['Daily', 'Monthly', 'All-time'][pkPeriod] + ' leaderboard', 1100); }
   setInterval(() => { if (mapInfo.pk && state !== 'menu' && performance.now() - pkPerAt > 15000) nextPeriod(false); }, 7000);
 
+  // ===== SURF PHYSICS (shared with the Node tests) =====
+  // a surf box is a tilted plane: footprint w x d turned by th, top face height = y + gx*(x-cx) + gz*(z-cz)
+  function surfMake(b, th, gx, gz) {
+    const l = Math.hypot(gx, gz), q = Math.sqrt(1 + l * l);
+    b.sf = { ux: Math.cos(th), uz: Math.sin(th), vx: -Math.sin(th), vz: Math.cos(th), gx, gz, nx: -gx / q, ny: 1 / q, nz: -gz / q, rg: 0.2 * l };
+    return b;
+  }
+  // pushes the player (position and velocity) out of every surf plane it has sunk into and slides it along them; returns the last plane touched
+  function surfClip(P, boxes) {
+    let hit = null;
+    for (let pass = 0; pass < 2; pass++) {
+      for (const b of boxes) {
+        const f = b.sf; if (!f) continue;
+        const dx = P.x - b.x, dz = P.z - b.z;
+        if (dx > 40 || dx < -40 || dz > 40 || dz < -40) continue;
+        const u = dx * f.ux + dz * f.uz, v = dx * f.vx + dz * f.vz;
+        if (u > b.w / 2 + 0.3 || u < -b.w / 2 - 0.3 || v > b.d / 2 + 0.3 || v < -b.d / 2 - 0.3) continue;
+        const s = (P.y - (b.y + f.gx * dx + f.gz * dz + f.rg)) * f.ny;
+        if (s >= 0 || s < -1.1) continue;
+        P.x -= f.nx * s; P.y -= f.ny * s; P.z -= f.nz * s;
+        const vn = P.vx * f.nx + P.vy * f.ny + P.vz * f.nz;
+        if (vn < 0) { P.vx -= f.nx * vn; P.vy -= f.ny * vn; P.vz -= f.nz * vn; }
+        hit = f;
+      }
+    }
+    return hit;
+  }
+  // ===== END SURF PHYSICS =====
   function rampH(b, x, z) {
     const t = b.rd === 0 ? (x - (b.x - b.w / 2)) / b.w : b.rd === 1 ? 1 - (x - (b.x - b.w / 2)) / b.w : b.rd === 2 ? (z - (b.z - b.d / 2)) / b.d : 1 - (z - (b.z - b.d / 2)) / b.d;
     return b.y + b.h * Math.max(0, Math.min(1, t));
@@ -976,7 +1039,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   // downhill direction and steepness (rise over run) of the ramp under (x, z), or null
   function slopeAt(x, z, y) {
     for (const b of boxes) {
-      if (b.rd < 0 || Math.abs(x - b.x) > b.w / 2 || Math.abs(z - b.z) > b.d / 2 || Math.abs(rampH(b, x, z) - y) > 0.6) continue;
+      if (b.sf || b.rd < 0 || Math.abs(x - b.x) > b.w / 2 || Math.abs(z - b.z) > b.d / 2 || Math.abs(rampH(b, x, z) - y) > 0.6) continue;
       const run = b.rd < 2 ? b.w : b.d, k = b.h / run, dx = b.rd === 0 ? -1 : b.rd === 1 ? 1 : 0, dz = b.rd === 2 ? -1 : b.rd === 3 ? 1 : 0;
       return { dx, dz, k };
     }
@@ -994,6 +1057,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function pushOut(p, r, y) {
     const tol = mapInfo.pk ? 0 : rampTolAt(p.x, p.z, y);
     for (const b of boxes) {
+      if (b.sf) continue;
       if (y >= b.y + b.h - 0.05 - (b.rd < 0 ? tol : 0) || y + 1.8 <= b.y) continue;
       const nx = Math.max(b.x - b.w / 2, Math.min(p.x, b.x + b.w / 2)), nz = Math.max(b.z - b.d / 2, Math.min(p.z, b.z + b.d / 2));
       if (b.rd >= 0 && y >= rampH(b, nx, nz) - 0.5) continue;
@@ -1009,6 +1073,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function groundAt(x, z, y) {
     let g = mapInfo.pk ? -1e9 : 0;
     for (const b of boxes) {
+      if (b.sf) continue;
       if (b.rd >= 0) {
         if (Math.abs(x - b.x) > b.w / 2 + 0.05 || Math.abs(z - b.z) > b.d / 2 + 0.05) continue;
         const hs = rampH(b, x, z); if (hs <= y + 0.5 && hs > g) g = hs; continue;
@@ -1365,7 +1430,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (!/^https?:$/.test(location.protocol)) { setMsg('Open the game through the server address (not as a file) to play online.'); $('play').disabled = false; return; }
     setMsg('Connecting...'); $('play').disabled = true;
     const name = ($('name').value.trim() || 'Player').slice(0, 14); cfg.name = name; saveCfg();
-    const join = () => wsSend({ t: 'join', mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
+    const join = () => wsSend({ t: 'join', mode: cfg.mode === 'sf' ? 'pk' : cfg.mode, level: curLv(), name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
     if (ws && ws.readyState === 1) { join(); return; }
     let sock; try { sock = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); } catch (e) { setMsg('Could not reach the server.'); $('play').disabled = false; return; }
     ws = sock; let opened = false;
@@ -1412,8 +1477,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
       pkDone = true; pkTime = m.time; lbCache[m.lv] = m.b;
       if (!pkPB[m.lv] || m.time < pkPB[m.lv]) pkPB[m.lv] = m.time;
             savePk(); refreshBoards();
-      const next = m.lv < PK_N ? 'N: next level' : 'That was the last level!';
-      $('pkdone').innerHTML = `<b>Level ${m.lv} complete</b>${fmtT(m.time)} &middot; today #${m.rd} &middot; month #${m.rm} &middot; all-time #${m.rank}${m.pb ? ' &middot; new best!' : ''}<br>R: retry &middot; ${next}`;
+      const next = m.lv !== PK_N && m.lv !== SF_BASE + 10 ? 'N: next level' : 'That was the last level!';
+      $('pkdone').innerHTML = `<b>${lvLabel(m.lv)} complete</b>${fmtT(m.time)} &middot; today #${m.rd} &middot; month #${m.rm} &middot; all-time #${m.rank}${m.pb ? ' &middot; new best!' : ''}<br>R: retry &middot; ${next}`;
       $('pkdone').hidden = false; pkHud();
       [523, 659, 784, 1046, 1318].forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle', 0.07), i * 90));
     } else if (m.t === 'lb') {
@@ -1478,7 +1543,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       banner('Eliminated by ' + m.by + (runMode === 'endless' ? '. Watching your squad.' : runMode === 'camp' ? '. Respawning soon.' : ''), 2400); beep(90, 0.5, 'sawtooth', 0.09, 0.4);
     } else if (m.t === 'respawn') {
       P.x = m.x; P.z = m.z; P.y = m.y || 0; P.vx = P.vz = P.vy = 0; P.slideT = 0; P.slideCd = 0; P.gr = false; P.hp = m.hp; P.dead = false; magOf.rifle = 30; magOf.sniper = 5; throwCd = 0; P.mag = P.weapon === 'knife' ? 0 : WEAPONS[P.weapon].mag; P.reloadT = 0; P.fellT = 0.4;
-      if (mapInfo.pk && pkCp === 0) { P.yaw = Math.PI; P.pitch = 0; }
+      if (mapInfo.pk && pkCp === 0) { P.yaw = mapInfo.pk.surf ? 0 : Math.PI; P.pitch = 0; }
       $('ammolabel').textContent = 'Ammo'; updateAmmo(); updateHp();
     } else if (m.t === 'k') {
       if (m.x != null) deathFx(m.x, (m.y || 0) + 1, m.z, m.sk | 0);
@@ -1520,7 +1585,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   let rpDm = 'k', dmCache = null, dmFetchAt = -1e9;
   function rpLevel() {      // >0 parkour level, -1 deathmatch, 0 hidden
     if (tutorial) return 0;
-    if (state === 'menu') return cfg.mode === 'pk' ? cfg.pkLevel : cfg.mode === 'dm' ? -1 : 0;
+    if (state === 'menu') return cfg.mode === 'pk' || cfg.mode === 'sf' ? curLv() : cfg.mode === 'dm' ? -1 : 0;
     if (state === 'pause') { if (mapInfo.pk && (ws || rpOffline)) return mapInfo.pk.lv; if (runMode === 'dm' && ws) return -1; }
     return 0;
   }
@@ -1536,7 +1601,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const box = $('rpbox'), lv = rpLevel(); box.hidden = !lv; if (!lv) return;
     rpFetch(lv);
     const dm = lv < 0, cur = dm ? rpDm : rpPer, tabs = dm ? [['k', 'Total kills'], ['s', 'Killstreak']] : [['d', 'Day'], ['m', 'Month'], ['a', 'All-time']];
-    $('rpstop').hidden = !replay; $('rptitle').textContent = dm ? 'Records \u00b7 Deathmatch' : 'Records \u00b7 Level ' + lv;
+    $('rpstop').hidden = !replay; $('rptitle').textContent = dm ? 'Records \u00b7 Deathmatch' : 'Records \u00b7 ' + lvLabel(lv);
     $('rptabs').innerHTML = tabs.map((t) => `<button type="button" data-p="${t[0]}"${t[0] === cur ? ' class="on"' : ''}>${t[1]}</button>`).join('');
     const list = $('rplist'); list.innerHTML = '';
     const src = dm ? dmCache : lbCache[lv], b = src || {}, rows = (dm ? b[rpDm] : (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : b.a)) || [];
@@ -1642,7 +1707,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   // Deathmatch / Campaign / Endless: no bunny hop (capped speed, one jump per key press).
   // Parkour: Quake style air control. Hold Space to chain jumps, turn and strafe in the air to gain speed.
   function move(dt, alive) {
-    const pk = !!mapInfo.pk;
+    const pk = !!mapInfo.pk, surfMap = !!(mapInfo.pk && mapInfo.pk.surf);
     const fwd = alive ? (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) : 0;
     let side = alive ? (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) : 0;
     assistT = Math.max(0, assistT - dt);
@@ -1659,6 +1724,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (onGround && alive && (jumpBuf > 0 || (pk && keys.Space))) {
       P.vy = 7; jumpBuf = 0; jumped = true; beep(180, 0.06, 'triangle', 0.02);
       if (pk) { if ((P.gT || 0) < 0.12 && P.combo > 0) P.combo++; else { P.combo = 1; P.air = 0; P.gn = 0; } P.gT = 0; }
+    } else if (surfMap && alive && jumpBuf > 0 && P.surfT > 0 && P.sn) {      // hop off the ramp (away from its face)
+      P.vx += P.sn.nx * 6; P.vy += P.sn.ny * 6; P.vz += P.sn.nz * 6; jumpBuf = 0; P.surfT = 0; beep(220, 0.07, 'triangle', 0.02);
     }
     if (!pk) {
       P.slideCd = Math.max(0, P.slideCd - dt);
@@ -1690,7 +1757,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
           if (add > 0) { const gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; P.gn = (P.gn || 0) + 1; }
         }
       }
-      const sp2 = Math.hypot(P.vx, P.vz); if (sp2 > 17) { P.vx *= 17 / sp2; P.vz *= 17 / sp2; }
+      const sp2 = Math.hypot(P.vx, P.vz), vcap = surfMap ? 34 : 17; if (sp2 > vcap) { P.vx *= vcap / sp2; P.vz *= vcap / sp2; }
     }
     if (onGround) { P.stepT -= dt * Math.hypot(P.vx, P.vz); if (P.stepT <= 0 && Math.hypot(P.vx, P.vz) > 2) { P.stepT = 2.4; beep(70 + Math.random() * 20, 0.05, 'triangle', 0.025); } }
     P.vy -= 20 * dt;
@@ -1705,6 +1772,12 @@ body.touch #tutcap span { font-size: 0.78rem; }
     else if (stick && onGround && !jumped && P.vy <= 0 && ny - g2 < 0.35) { ny = g2; P.vy = 0; landed = true; }     // stay glued to ramps going down
     P.gr = landed;
     P.y = Math.max(pk ? -1e9 : 0, ny);
+    if (surfMap) {
+      const hit = alive ? surfClip(P, boxes) : null;
+      if (hit) { P.surfT = 0.12; P.sn = hit; P.gr = false; } else P.surfT = Math.max(0, (P.surfT || 0) - dt);
+      const sh = Math.hypot(P.vx, P.vz); if (sh > 34) { P.vx *= 34 / sh; P.vz *= 34 / sh; }
+      if (P.vy < -60) P.vy = -60;
+    }
   }
 
   function startSlide() {
@@ -1758,7 +1831,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
     { const sw = stabT > 0 ? Math.sin((1 - stabT / 0.28) * Math.PI) : 0; knifeG.position.set(0.24 - 0.12 * sw, -0.22 + 0.04 * sw, -0.5 - 0.22 * sw); knifeG.rotation.set(0.3 - 0.5 * sw, 0.15 + 0.5 * sw, -0.2 - 0.6 * sw); }
     if (pk0 && !$('bhud').hidden) {
       const sp = Math.hypot(P.vx, P.vz), el = $('bhsp'), t1 = sp.toFixed(1); if (el.textContent !== t1) el.textContent = t1;
-      $('bhfill').style.transform = `scaleX(${Math.min(1, sp / 17)})`; el.style.color = sp > 14 ? '#ffd166' : sp > 11 ? '#ff9ec4' : '#fff';
+      const vc = mapInfo.pk.surf ? 34 : 17; $('bhud').classList.toggle('sf', !!mapInfo.pk.surf);
+      $('bhfill').style.transform = `scaleX(${Math.min(1, sp / vc)})`; el.style.color = sp > vc * 0.82 ? '#ffd166' : sp > vc * 0.65 ? '#ff9ec4' : '#fff';
       const cb = P.combo || 0, ct = 'BHOP ×' + cb; if ($('bhcombo').textContent !== ct) { $('bhcombo').textContent = ct; $('bhcombo').classList.toggle('hot', cb >= 8); }
       const sy = P.air > 10 ? Math.round(100 * (P.gn || 0) / P.air) + '%' : '–'; if ($('bhsync').textContent !== 'SYNC ' + sy) $('bhsync').textContent = 'SYNC ' + sy;
     }
@@ -1814,6 +1888,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const pk = runMode === 'pk';
     touchShow(on && state === 'play' && !(tutorial && tutMode === 'demo'));
     ['top', 'hp', 'ammo', 'cross', 'dash', 'streakhud', 'timer'].forEach((id) => { $(id).hidden = !on || pk; });
+    if (!replay) $('pkhint').textContent = mapInfo.pk && mapInfo.pk.surf ? 'Mouse: steer along the ramp \u00b7 A / D: lean into it \u00b7 Space: hop off \u00b7 R: restart \u00b7 B / N: previous / next map' : 'Space: jump (hold to bunny hop) \u00b7 R: restart \u00b7 B / N: previous / next level \u00b7 V: daily / monthly / all-time board';
     $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('bhud').hidden = !on || !pk || tutorial; $('pkhint').hidden = !on || !pk;
     $('ks').hidden = !(on && pk && cfg.ks !== false) || tutorial;
     if (!on) { $('bossbar').hidden = true; $('pkdone').hidden = true; }
@@ -1884,7 +1959,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
     if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (!rpOffline) lock(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
-    if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
+    if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const cl = mapInfo.pk.lv, nl = cl + (e.code === 'KeyN' ? 1 : -1), lo = cl > SF_BASE ? SF_BASE + 1 : 1, hi = cl > SF_BASE ? SF_BASE + 10 : PK_N; if (nl >= lo && nl <= hi) { if (nl > SF_BASE) cfg.sfLevel = nl - SF_BASE; else cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
     if (e.code === 'KeyE') dash();
     if (e.code === 'KeyC' && !e.repeat) startSlide();
     if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
@@ -2127,7 +2202,7 @@ function tutStep(S, P, gAt, dt, route, plats) {
     buildWorld({ t: 'map', id: 'menu', name: '', th: 'forest', half: 60, b, pk: null });
   }
   buildMenuWorld();
-  function leaveOfflineReplay() { endReplay(); rpOffline = false; runMode = cfg.mode; buildMenuWorld(); }
+  function leaveOfflineReplay() { endReplay(); rpOffline = false; runMode = cfg.mode === 'sf' ? 'pk' : cfg.mode; buildMenuWorld(); }
   buildSwatches(); setWeaponLook(wallet.equipped); applySkin(cfg.skin); $('coinhud').textContent = wallet.coins;
   showCard('menu');
   requestAnimationFrame(frame);
