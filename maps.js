@@ -161,8 +161,8 @@ const PK_INFO = [
   { th: 'abyss', name: 'Abyssal Depths', col: 0x2a5a6a },
   { th: 'neon', name: 'Neon City', col: 0x2b1b55 },
   { th: 'space', name: 'Outer Space', col: 0x3a3a5a },
-  { th: 'cavern', name: 'Deep Caverns', col: 0x5a4e45 },
-  { th: 'neon', name: 'Final Sprint', col: 0x3b2470 }
+  { th: 'neon', name: 'Final Sprint', col: 0x3b2470 },
+  { th: 'volcano', name: 'Ember Dash', col: 0x4a2a22 }
 ];
 const PK_LEVELS = PK_INFO.length;
 function airtime(dy) { const disc = 49 - 40 * dy; return disc < 0 ? 0 : (7 + Math.sqrt(disc)) / 20; }
@@ -172,9 +172,9 @@ function gapDist(a, b) {
 }
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
 function parkour(L) {
-  const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = Math.min((L - 1) / 9, 1.1), band = PK_INFO[L - 1], big = band.th === 'cavern';     // t keeps the old value for levels 1-10, so their layouts did not change; the last level is long, hard and roomy
+  const SL = L === 11 ? 12 : L === 12 ? 13 : L, r = rng(SL * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = Math.min((SL - 1) / 9, 1.1), band = PK_INFO[L - 1], big = band.th === 'cavern';     // t keeps the old value for levels 1-10, so their layouts did not change; the last level is long, hard and roomy
   const f = big ? 0.7 : 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [], cps = [];     // gentler than before: shorter gaps, bigger platforms
-  const N = big ? 54 : L === 12 ? 6 : 10 + Math.round(L * 2.2);
+  const N = big ? 54 : L === 11 ? 6 : L === 12 ? 3 : 10 + Math.round(L * 2.2);
   const col = band.col;
   const mk = (x, z, w, d, top, kind) => { const b = B(kind || 'plat', x, z, w, d, 0.7, col, top - 0.7); b.top = top; return b; };
   const start = mk(0, 0, 7, 7, 0, 'start'); plats.push(start); boxes.push(start);

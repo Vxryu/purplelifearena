@@ -373,6 +373,10 @@ setInterval(() => {
 const SCORE_FILE = path.join(process.env.DATA_DIR || __dirname, 'scores-v2.json');
 let scores = {};
 try { scores = JSON.parse(fs.readFileSync(SCORE_FILE, 'utf8')); } catch (e) { scores = {}; }
+if (!scores._m2) {      // levels were renumbered: the cave level (11) was removed and the old level 12 became 11
+  delete scores[11]; if (scores[12]) { scores[11] = scores[12]; delete scores[12]; }
+  scores._m2 = 1;
+}
 let saveT = null;
 function saveScores() { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(SCORE_FILE, JSON.stringify(scores), () => {}); }, 2000); }
 // each level keeps three boards: today, this month and all time (days and months follow Paris time)

@@ -145,7 +145,7 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Bhop HUD (all devices, parkour): speed bar, bhop combo and strafe sync %.
 
 ## Parkour: 12 levels
-- The game is parkour only (Surf and Deathmatch are not selectable anymore).
-- Levels 1 to 10 are unchanged, so existing records and replays stay valid.
-- Level 11, Deep Caverns: a long cave course (54 platforms, about 525 m) with solid rock walls all around, rock pillars and wall slabs between the platforms, and no checkpoints. Rendered with bump-mapped rock, a rock ceiling with stalactites, flickering wall torches, a headlamp and an underground lake below.
+- The game is parkour only (Surf and Deathmatch are not selectable anymore). No minimum run time and no checkpoints: shortcuts are allowed.
+- Levels 1 to 10 are unchanged. Level 11 is Final Sprint (6 platforms), level 12 is Ember Dash (3 platforms, the shortest). The cave level was removed; its saved times are dropped and the old level 12 scores move to level 11 automatically.
+- `P` switches between first and third person view.
 
