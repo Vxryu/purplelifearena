@@ -1,5 +1,7 @@
 # Purple Arena Online
 
+> **Note:** Deathmatch and Surf are no longer selectable in the menu; the game is parkour only (15 levels). Older Deathmatch sections below are kept for reference.
+
 FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deux modes, un seul serveur, aucune installation côté joueur : on ouvre un lien et on joue.
 
 ## Modes de jeu
@@ -141,9 +143,9 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Parkour on phones: ◀ ▶ arrow buttons replace the joystick (running forward, with an FWD button to toggle auto-run), big JUMP (hold = auto bhop), **AUTO** (locks jump held), **ASSIST** (swiping to turn in the air also strafes that way, which is what builds speed).
 - Bhop HUD (all devices, parkour): speed bar, bhop combo and strafe sync %.
 
-## Surf mode (10 maps)
-- New third mode in the menu. Maps are server levels 11 to 20 (surf 1 to 10), so records, daily / monthly / all-time boards and top-10 replays work like parkour.
-- CS:S style surf: ramps are tilted planes (`kind 'surf'` in maps.js: footprint turned by `th`, gradient `gx`, `gz`). The client slides you along them (velocity clipped against the plane, in `surfClip` in index.html), air strafing and gravity do the rest. Space hops you off a ramp, speed is capped at 34 u/s.
-- Maps get longer (320 m to 1.6 km) and harder: banked curves, speed sections, jump gaps with a kicker, narrow ramps, s-bends. Fall off and you restart.
-- Server: finish zone is wider (`pk.finR`) and the fastest possible time uses `pk.vmax`.
-- Test notes: all 10 maps are finishable by a test bot that only steers its velocity in the air (see scratchpad sim), and a full run is accepted by the server.
+## Parkour: 15 levels
+- The game is parkour only now (Surf and Deathmatch were removed).
+- Levels 1 to 10 are unchanged, so existing records and replays stay valid.
+- New levels 11 to 15: Sunset Canyon, Toxic Swamp, Aurora Peaks, Cloud Kingdom, The Gauntlet.
+- Level 15 (The Gauntlet) is long (73 platforms, about 757 m) with large platforms and 5 checkpoints. Falling respawns you at the last checkpoint and the clock keeps running. R restarts the run. The finish only counts after all checkpoints.
+

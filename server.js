@@ -1,6 +1,5 @@
 // Purple Arena - authoritative multiplayer server with two game modes:
-//   dm       Deathmatch: 1:30 matches, most kills wins
-//   pk       Parkour: 10 timed levels + 10 surf maps (levels 11 to 20) (one biome each) with bunny hop, best times saved per level
+//   pk       Parkour: 15 timed levels (one biome each) with bunny hop, best times saved per level (the last level has checkpoints)
 // Clients send their position and shots. The server runs hit detection, scores and the parkour timer.
 
 const http = require('http');
@@ -72,7 +71,6 @@ function pushOut(map, p, r, y) {
   y = y || 0;
   const tol = rampTol(map, p.x, p.z, y);
   for (const b of map.boxes) {
-    if (b.kind === 'surf') continue;       // surf planes are handled by the client's physics
     const top = b.y + b.h;
     if (y >= top - 0.05 - (b.kind === 'ramp' ? 0 : tol) || y + PLAYER_H <= b.y) continue;   // standing on it / passing under it
     const nx = Math.max(b.x - b.w / 2, Math.min(p.x, b.x + b.w / 2));
@@ -439,8 +437,7 @@ wss.on('connection', (ws) => {
     if (!m || typeof m !== 'object') return;
     const room = me && me.room;
     if (m.t === 'join' && !me) {
-      let r = rooms[m.mode];
-      if (m.mode === 'pk') r = pkRoom(clamp(Math.floor(+m.level) || 1, 1, PK_LEVELS));
+      const r = pkRoom(clamp(Math.floor(+m.level) || 1, 1, PK_LEVELS));     // parkour is the only mode now
       if (!r) return;
       if (r.players.size >= MAX_PER_ROOM) { ws.send(JSON.stringify({ t: 'full' })); return; }
       const name = String(m.name || 'Player').replace(/[<>&"'`]/g, '').trim().slice(0, 14) || 'Player';
@@ -455,7 +452,7 @@ wss.on('connection', (ws) => {
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
       const map = room.map, pk = map.pk;
       let nx = m.x, nz = m.z;
-      const maxd = (pk && pk.surf ? 48 : 34) * dt + 1.2, dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz);
+      const maxd = 34 * dt + 1.2, dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz);
       if (dd > maxd) { nx = me.x + dx / dd * maxd; nz = me.z + dz / dd * maxd; }
       const p = { x: nx, z: nz }; pushOut(map, p, 0.45, m.y);
       me.x = p.x; me.z = p.z; me.yaw = m.yaw; me.pitch = clamp(m.pitch, -1.5, 1.5);
@@ -471,10 +468,10 @@ wss.on('connection', (ws) => {
       // the clock starts as soon as you step off the green start platform (7 x 7)
       if (!me.pkStart && (Math.abs(me.x - pk.start[0]) > 3.5 || Math.abs(me.z - pk.start[2]) > 3.5)) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
       const nextCp = pk.cps[me.cp];
-      if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < 2.6 && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
-      else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < (pk.finR || 3.2) && Math.abs(me.y - pk.fin[1]) < 2.2) {
+      if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < (pk.cpR || 2.6) && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
+      else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < 3.2 && Math.abs(me.y - pk.fin[1]) < 2.2) {
         const time = (Date.now() - me.pkStart) / 1000;
-        if (time < pk.pathLen / (pk.vmax || 26)) return;      // faster than anybody could run it
+        if (time < pk.pathLen / 26) return;      // faster than anybody could run it
         me.finished = true;
         const res = recordTime(room.level, me.name, Math.round(time * 100) / 100, flatRec(me.rec));
         send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
@@ -503,7 +500,8 @@ wss.on('connection', (ws) => {
       const str = JSON.stringify(msg);
       for (const r of allRooms()) for (const p of r.players.values()) if (p.ws.readyState === 1) p.ws.send(str);       // global: every room hears it
     } else if (m.t === 'fell' && me && room.mode === 'pk') {
-      me.falls++; me.pkStart = 0; me.finished = false; respawn(room, me); send(me, { t: 'pkr', f: me.falls });
+      if (me.finished) me.cp = 0;       // fell after finishing: start over
+      me.falls++; if (!me.cp) me.pkStart = 0; me.finished = false; respawn(room, me); send(me, { t: 'pkr', f: me.falls, cp: me.cp });     // with a checkpoint the clock keeps running
     } else if (m.t === 'restart' && me && room.mode === 'pk') {
       me.cp = 0; me.pkStart = 0; me.finished = false; respawn(room, me);
     } else if (m.t === 'lvl' && me && room.mode === 'pk') {

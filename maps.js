@@ -160,10 +160,14 @@ const PK_INFO = [
   { th: 'volcano', name: 'Molten Core', col: 0x2d2523 },
   { th: 'abyss', name: 'Abyssal Depths', col: 0x2a5a6a },
   { th: 'neon', name: 'Neon City', col: 0x2b1b55 },
-  { th: 'space', name: 'Outer Space', col: 0x3a3a5a }
+  { th: 'space', name: 'Outer Space', col: 0x3a3a5a },
+  { th: 'canyon', name: 'Sunset Canyon', col: 0xc9663a },
+  { th: 'swamp', name: 'Toxic Swamp', col: 0x56703a },
+  { th: 'aurora', name: 'Aurora Peaks', col: 0x8fd0e6 },
+  { th: 'sky', name: 'Cloud Kingdom', col: 0xe8eef8 },
+  { th: 'finale', name: 'The Gauntlet', col: 0x3a2a5a }
 ];
-const PK_PARKOUR = PK_INFO.length;
-const PK_LEVELS = PK_PARKOUR + 10;     // 10 parkour levels, then 10 surf maps
+const PK_LEVELS = PK_INFO.length;
 function airtime(dy) { const disc = 49 - 40 * dy; return disc < 0 ? 0 : (7 + Math.sqrt(disc)) / 20; }
 function gapDist(a, b) {
   const dx = Math.max(0, Math.abs(a.x - b.x) - (a.w + b.w) / 2), dz = Math.max(0, Math.abs(a.z - b.z) - (a.d + b.d) / 2);
@@ -171,9 +175,9 @@ function gapDist(a, b) {
 }
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
 function parkour(L) {
-  const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = (L - 1) / (PK_PARKOUR - 1), band = PK_INFO[L - 1];
-  const f = 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [];     // gentler than before: shorter gaps, bigger platforms
-  const N = 10 + Math.round(L * 2.2);
+  const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = (L - 1) / 9, band = PK_INFO[L - 1], big = L === PK_LEVELS;     // t keeps the old value for levels 1-10, so their layouts did not change; the last level is long, hard and roomy
+  const f = big ? 0.8 : 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [], cps = [];     // gentler than before: shorter gaps, bigger platforms
+  const N = big ? 72 : 10 + Math.round(L * 2.2);
   const col = band.col;
   const mk = (x, z, w, d, top, kind) => { const b = B(kind || 'plat', x, z, w, d, 0.7, col, top - 0.7); b.top = top; return b; };
   const start = mk(0, 0, 7, 7, 0, 'start'); plats.push(start); boxes.push(start);
@@ -184,10 +188,10 @@ function parkour(L) {
     let placed = null;
     for (let tries = 0; tries < 40 && !placed; tries++) {
       let d2 = dir;
-      if ((r() < 0.1 + 0.2 * t || tries > 8) && !(prevRun && tries <= 20)) { const s = r() < 0.5 ? 1 : -1; d2 = dir[0] === 0 ? [s, 0] : [0, s]; }
-      const last = i === N, run = !last && L >= 4 && i > 1 && placedRunOk && r() < 0.1 + 0.1 * t, size = last ? 6 : Math.max(3.1, (5.6 - 2.1 * t) * (0.85 + r() * 0.4));
-      let w = size, dd = last ? 6 : Math.max(3.1, size * (0.85 + r() * 0.3));
-      if (run) { if (d2[0] === 0) { w = 3.4; dd = 12; } else { w = 12; dd = 3.4; } }
+      if ((r() < (big ? 0.34 : 0.1 + 0.2 * t) || tries > 8) && !(prevRun && tries <= 20)) { const s = r() < 0.5 ? 1 : -1; d2 = dir[0] === 0 ? [s, 0] : [0, s]; }
+      const last = i === N, isCp = big && !last && i % 14 === 0, run = !last && !isCp && L >= 4 && i > 1 && placedRunOk && r() < 0.1 + 0.1 * Math.min(t, 1), size = last || isCp ? 6 : big ? 4.8 + r() * 2.4 : Math.max(3.1, (5.6 - 2.1 * t) * (0.85 + r() * 0.4));
+      let w = size, dd = last || isCp ? 6 : big ? 4.8 + r() * 2.4 : Math.max(3.1, size * (0.85 + r() * 0.3));
+      if (run) { const rw = big ? 4.6 : 3.4; if (d2[0] === 0) { w = rw; dd = 12; } else { w = 12; dd = rw; } }
       const up = r() < 0.4 ? r() * (0.25 + 0.45 * t) : -r() * (0.6 + 1.4 * t);
       const top = Math.max(-2, prev.top + (last ? Math.min(up, 0) : up));
       const dy = top - prev.top, allow = f * V * airtime(dy);
@@ -196,7 +200,7 @@ function parkour(L) {
       const lat = (r() * 2 - 1) * (0.2 + 1.0 * t);
       const along = (d2[0] !== 0 ? (prev.w + w) / 2 : (prev.d + dd) / 2) + g;
       let x = prev.x + d2[0] * along + (d2[0] === 0 ? lat : 0), z = prev.z + d2[1] * along + (d2[1] === 0 ? lat : 0);
-      const c = mk(x, z, w, dd, top, last ? 'finish' : 'plat');
+      const c = mk(x, z, w, dd, top, last ? 'finish' : isCp ? 'cp' : 'plat');
       if (gapDist(prev, c) > allow) { continue; }
       // keep the scoreboards readable: nothing may stand in front of the start board, and nothing high next to the finish board
       if (Math.abs(x) - w / 2 < 6.5 && z + dd / 2 > 3.2 && z - dd / 2 < 16) continue;
@@ -205,103 +209,20 @@ function parkour(L) {
       placed = c; dir = d2; placed.run = run;
     }
     if (!placed) { // fallback: straight, easy step
-      const w = i === N ? 6 : 3, dd = w, c = mk(prev.x + dir[0] * (prev.w / 2 + 3 + w / 2), prev.z + dir[1] * (prev.d / 2 + 3 + dd / 2), w, dd, prev.top, i === N ? 'finish' : 'plat');
+      const w = i === N ? 6 : big ? 5 : 3, dd = w, c = mk(prev.x + dir[0] * (prev.w / 2 + 3 + w / 2), prev.z + dir[1] * (prev.d / 2 + 3 + dd / 2), w, dd, prev.top, i === N ? 'finish' : big && i % 14 === 0 ? 'cp' : 'plat');
       placed = c;
     }
     pathLen += Math.hypot(placed.x - prev.x, placed.z - prev.z);
     plats.push(placed); boxes.push(placed); placedRunOk = !placed.run;
+    if (placed.kind === 'cp') cps.push([placed.x, placed.top, placed.z]);
   }
   const fin = plats[plats.length - 1];
   let minY = 0, maxY = 0, minX = 0, maxX = 0, minZ = 0, maxZ = 0;
   for (const p of plats) { minY = Math.min(minY, p.top); maxY = Math.max(maxY, p.top); minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
   return {
     id: 'pk' + L, name: 'Level ' + L + ' - ' + band.name, biome: band.th, th: band.th, half: 2000, boxes, spawns: [[0, 0]], pk: {
-      lv: L, n: PK_PARKOUR, start: [0, 0, 0], cps: [], fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
+      lv: L, n: PK_LEVELS, start: [0, 0, 0], cps, cpR: 4.2, fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
       bounds: [minX - 20, maxX + 20, minZ - 20, maxZ + 20, minY, maxY]
-    }
-  };
-}
-
-
-// ---------- surf (server levels 11 to 20 = surf maps 1 to 10) ----------
-// A surf ramp is a tilted plane (kind 'surf'): footprint = rectangle turned by th, height of the top face = y + gx*(x-cx) + gz*(z-cz).
-// Players do not stand on it: the client slides them along it (velocity clipped against the plane, like CS:S surf).
-const SF_BASE = 10;
-const SF_INFO = [
-  { th: 'ice', name: 'Rookie Slide', col: 0xbfe3f5 },
-  { th: 'desert', name: 'Sunset Dunes', col: 0xe0a860 },
-  { th: 'forest', name: 'Pine Drift', col: 0x6b8f4e },
-  { th: 'water', name: 'Tidal Surf', col: 0x4aa8d8 },
-  { th: 'neon', name: 'Neon Highway', col: 0x7a4dff },
-  { th: 'cave', name: 'Crystal Chute', col: 0x9b6bff },
-  { th: 'factory', name: 'Rusty Spiral', col: 0xc08a50 },
-  { th: 'volcano', name: 'Magma Rush', col: 0xe0552a },
-  { th: 'abyss', name: 'Abyss Run', col: 0x2ac0c8 },
-  { th: 'space', name: 'Orbital Gauntlet', col: 0x8a8aff }
-];
-function surf(L) {
-  const r = rng(L * 104729 + 77), d = (L - 1) / 9, info = SF_INFO[L - 1];
-  const boxes = [], path = [], col = info.col;
-  const O = { gD: 0.2, gC: 1.45 + 0.15 * d, wr: 12 - 3 * d, ov: 1.3 };
-  const start = B('start', 0, 0, 7, 7, 0.7, col, -0.7); start.top = 0; boxes.push(start);
-  let tag = 'start';
-  const st = { x: 0, z: -3.5, phi: -Math.PI / 2, y: 0, s: 0 };
-  // lays one pair of tiles (one tile if only one side is asked for) of length seg while the heading turns by dphi
-  function lay(seg, dphi, o) {
-    const pm = st.phi + dphi / 2, fx = Math.cos(pm), fz = Math.sin(pm), lx = -fz, lz = fx;
-    const mx = st.x + fx * seg / 2, mz = st.z + fz * seg / 2, yMid = st.y - o.gD * seg / 2;
-    for (const sg of (o.sides || [-1, 1])) {
-      const off = sg * o.wr / 2, cx = mx + lx * off, cz = mz + lz * off;
-      const b = B('surf', cx, cz, seg + o.ov, o.wr, 1.2, col, yMid + o.gC * o.wr / 2);
-      b.th = pm; b.gx = -o.gD * fx + o.gC * sg * lx; b.gz = -o.gD * fz + o.gC * sg * lz; boxes.push(b);
-    }
-    st.x += fx * seg; st.z += fz * seg; st.y -= o.gD * seg; st.phi += dphi; st.s += seg;
-    path.push([st.x, st.z, st.y, tag]);
-  }
-  const run = (len, o) => { const n = Math.max(1, Math.round(len / 14)); for (let i = 0; i < n; i++) lay(len / n, 0, o || O); };
-  const curve = (deg, R, o) => { const sg = deg < 0 ? -1 : 1, seg = 4, n = Math.max(2, Math.round(Math.abs(deg) * Math.PI / 180 * R / seg)); for (let i = 0; i < n; i++) lay(seg, sg * seg / R, o || O); };
-  const fly = (len, off) => {      // nothing underneath: the next pipe starts after a jump (optionally shifted sideways)
-    const fx = Math.cos(st.phi), fz = Math.sin(st.phi); st.x += fx * len - fz * (off || 0); st.z += fz * len + fx * (off || 0); st.y -= O.gD * len; st.s += len; path.push([st.x, st.z, st.y, tag]);
-  };
-  const total = 250 + 140 * (L - 1);
-  run(36);
-  let k = 0;
-  while (st.s < total) {
-    k++;
-    const p = r(), sgn = r() < 0.5 ? -1 : 1;
-    const feats = [];
-    if (L >= 2) feats.push('fast');
-    if (L >= 3) feats.push('gap');
-    if (L >= 4) feats.push('narrow');
-    if (L >= 5) feats.push('slow');
-    if (L >= 6) feats.push('long gap');
-    if (L >= 8) feats.push('s-bend');
-    tag = 'run'; if (p < 0.3 || (k === 1)) run(24 + r() * 30);
-    else if (p < 0.62 || !feats.length) { tag = 'curve'; curve(sgn * (35 + r() * (40 + 70 * d)), 70 - 36 * d - r() * 8); }
-    else {
-      const f = feats[Math.floor(r() * feats.length)]; tag = f;
-      if (f === 'fast') run(34 + r() * 20, Object.assign({}, O, { gD: 0.36 + 0.14 * d }));
-      else if (f === 'slow') run(30 + r() * 15, Object.assign({}, O, { gD: -0.02 }));
-      else if (f === 'narrow') run(34 + r() * 24, Object.assign({}, O, { wr: 7.5 - 1.5 * d }));
-      else if (f === 'gap') { run(10); run(8, Object.assign({}, O, { gD: -0.35 })); fly(5 + 5 * d + r() * 3, sgn * r() * 3 * d); run(18); }
-      else if (f === 'long gap') { run(14, Object.assign({}, O, { gD: 0.3 })); run(8, Object.assign({}, O, { gD: -0.4 })); fly(12 + 8 * d + r() * 4, sgn * r() * 5 * d); run(20); }
-      else if (f === 's-bend') { curve(sgn * 50, 58 - 24 * d); curve(-sgn * 50, 58 - 24 * d); }
-    }
-  }
-  run(24);
-  // finish pad ahead of the last tile, level with the pipe
-  const fx = Math.cos(st.phi), fz = Math.sin(st.phi), fxp = st.x + fx * 11, fzp = st.z + fz * 11, fy = st.y - 0.25;
-  const fin = B('finish', fxp, fzp, 18, 18, 0.7, col, fy - 0.7); fin.top = fy; boxes.push(fin);
-  let minY = 0, maxY = 0, minX = 0, maxX = 0, minZ = 0, maxZ = 0;
-  for (const b of boxes) {
-    const hi = b.kind === 'surf' ? b.y + 0.5 * (Math.abs(b.gx) + Math.abs(b.gz)) * Math.max(b.w, b.d) : b.y + b.h, lo = b.kind === 'surf' ? b.y - 0.5 * (Math.abs(b.gx) + Math.abs(b.gz)) * Math.max(b.w, b.d) - b.h : b.y;
-    minY = Math.min(minY, lo); maxY = Math.max(maxY, hi); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x); minZ = Math.min(minZ, b.z); maxZ = Math.max(maxZ, b.z);
-  }
-  const lv = SF_BASE + L;
-  return {
-    id: 'pk' + lv, name: 'Surf ' + L + ' - ' + info.name, biome: info.th, th: info.th, half: 2000, boxes, spawns: [[0, 0]], path, pk: {
-      lv, n: PK_LEVELS, surf: 1, vmax: 38, finR: 9, start: [0, 0, 0], cps: [], fin: [fxp, fy, fzp], kill: minY - 12, pathLen: st.s,
-      bounds: [minX - 30, maxX + 30, minZ - 30, maxZ + 30, minY, maxY]
     }
   };
 }
@@ -315,8 +236,7 @@ function getMap(id) {
   else if (id === 'frost') m = frost();
   else if (id === 'woods') m = woods();
   else if (id === 'reactor') m = reactor();
-  else if ((k = /^pk(\d+)$/.exec(id)) && +k[1] >= 1 && +k[1] <= PK_PARKOUR) m = parkour(+k[1]);
-  else if (k && +k[1] > PK_PARKOUR && +k[1] <= PK_LEVELS) m = surf(+k[1] - PK_PARKOUR);
+  else if ((k = /^pk(\d+)$/.exec(id)) && +k[1] >= 1 && +k[1] <= PK_LEVELS) m = parkour(+k[1]);
   if (!m) return null;
   // make sure every spawn point is out of every box
   m.spawns = m.spawns.map(([x, z]) => {
@@ -326,7 +246,7 @@ function getMap(id) {
     }
     return [x, z];
   });
-  m.wire = JSON.stringify({ t: 'map', id: m.id, name: m.name, th: m.th, half: m.half, b: m.boxes.map((b) => [b.kind, +b.x.toFixed(2), +b.z.toFixed(2), +b.w.toFixed(2), +b.d.toFixed(2), +b.h.toFixed(2), b.col, +b.y.toFixed(2), b.rd | 0].concat(b.kind === 'surf' ? [+b.th.toFixed(4), +b.gx.toFixed(4), +b.gz.toFixed(4)] : [])), pk: m.pk || null });
+  m.wire = JSON.stringify({ t: 'map', id: m.id, name: m.name, th: m.th, half: m.half, b: m.boxes.map((b) => [b.kind, +b.x.toFixed(2), +b.z.toFixed(2), +b.w.toFixed(2), +b.d.toFixed(2), +b.h.toFixed(2), b.col, +b.y.toFixed(2), b.rd | 0]), pk: m.pk || null });
   cache.set(id, m);
   return m;
 }
@@ -336,4 +256,4 @@ function rampH(b, x, z) {
   const t = b.rd === 0 ? (x - (b.x - b.w / 2)) / b.w : b.rd === 1 ? 1 - (x - (b.x - b.w / 2)) / b.w : b.rd === 2 ? (z - (b.z - b.d / 2)) / b.d : 1 - (z - (b.z - b.d / 2)) / b.d;
   return b.y + b.h * Math.max(0, Math.min(1, t));
 }
-module.exports = { SF_BASE, SF_INFO, PK_PARKOUR, rampH, setSalt, getMap, DM_MAPS, PK_LEVELS, PK_INFO, airtime, gapDist };
+module.exports = { rampH, setSalt, getMap, DM_MAPS, PK_LEVELS, PK_INFO, airtime, gapDist };
