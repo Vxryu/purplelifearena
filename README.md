@@ -145,7 +145,12 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Bhop HUD (all devices, parkour): speed bar, bhop combo and strafe sync %.
 
 ## Parkour: 12 levels
-- The game is parkour only (Surf and Deathmatch are not selectable anymore). No minimum run time and no checkpoints: shortcuts are allowed.
-- Levels 1 to 10 are unchanged. Level 11 is Final Sprint (6 platforms), level 12 is Ember Dash (3 platforms, the shortest). The cave level was removed; its saved times are dropped and the old level 12 scores move to level 11 automatically.
+- The game is parkour only (Surf and Deathmatch are not selectable anymore). No checkpoints and shortcuts are allowed, but the server limits movement speed with a budget (21 u/s) and refuses times shorter than the straight line from start to finish at top speed (anti lag-cheat).
+- Levels 1 to 10 are unchanged. Level 11 is Final Sprint (6 platforms), level 12 is Blink (2 platforms, the shortest). The cave level was removed; its saved times are dropped and the old level 12 scores move to level 11 automatically.
 - `P` switches between first and third person view.
 
+
+## Admin page (edit or delete times)
+- Set the `ADMIN_PASSWORD` environment variable on Render (Environment tab), redeploy, then open `https://your-site.onrender.com/admin`.
+- Pick a level and a board (all-time, day, month), then change a time or delete a player. Changes apply immediately and are saved to `scores-v2.json`, no restart needed.
+- Without `ADMIN_PASSWORD` the page does not exist (404). After 8 wrong passwords an IP is locked for 10 minutes.

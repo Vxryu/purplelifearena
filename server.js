@@ -24,6 +24,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     res.end(page); return;
   }
+  if (req.url === '/admin' || req.url.startsWith('/admin/')) { adminHandler(req, res); return; }
   if (req.url.startsWith('/api/')) {
     // read-only data for the menu: boards, replays and map of a parkour level (no connection needed)
     const u = new URL(req.url, 'http://x'), lv = Math.max(1, Math.min(PK_LEVELS, Math.floor(+u.searchParams.get('lv')) || 1));
@@ -39,6 +40,72 @@ const server = http.createServer((req, res) => {
   res.writeHead(404); res.end('Not found');
 });
 const wss = new WebSocketServer({ server, maxPayload: 2048 });
+
+
+// ---- admin page: /admin (needs the ADMIN_PASSWORD environment variable; disabled when it is not set) ----
+const crypto = require('crypto');
+const adminFails = new Map();
+const ADMIN_HTML = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Purple Arena admin</title>
+<style>body{font:15px system-ui,sans-serif;background:#14091f;color:#eee;margin:0;padding:16px;max-width:760px;margin:auto}h1{font-size:1.3rem}input,select,button{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid #6b4aa8;background:#241238;color:#fff}button{cursor:pointer;background:#6b3fd1}button.d{background:#a3263f}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{padding:6px 8px;border-bottom:1px solid #3a2358;text-align:left}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}#msg{min-height:1.4em;color:#ffd166}small{color:#a99bc7}</style></head><body>
+<h1>Purple Arena - gestion des temps</h1>
+<div id="login" class="row"><input id="pw" type="password" placeholder="Mot de passe admin"><button id="go">Connexion</button></div>
+<div id="app" hidden>
+<div class="row"><label>Niveau <select id="lv"></select></label><label>Classement <select id="list"><option value="all">Tout-temps</option><option value="day">Jour</option><option value="month">Mois</option></select></label><button id="reload">Actualiser</button></div>
+<table><thead><tr><th>#</th><th>Joueur</th><th>Temps (s)</th><th>Replay</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<div class="row"><button class="d" id="clear">Vider tout le niveau (3 classements)</button></div>
+<small>Modifier ou supprimer s'applique tout de suite, sans redemarrer le serveur. "Les 3" = tout-temps, jour et mois.</small>
+</div><div id="msg"></div>
+<script>
+const $=id=>document.getElementById(id);let pw=sessionStorage.getItem('apw')||'';
+async function api(o){const r=await fetch('/admin/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({pw},o))});const j=await r.json().catch(()=>({}));if(!r.ok){$('msg').textContent=j.err||('Erreur '+r.status);throw new Error(j.err||r.status)}return j}
+function show(){$('login').hidden=true;$('app').hidden=false}
+async function load(){const j=await api({op:'list',lv:+$('lv').value,list:$('list').value});const tb=$('rows');tb.innerHTML='';j.rows.forEach((r,i)=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+(i+1)+'</td><td></td><td></td><td>'+(r.r?'oui':'-')+'</td><td></td>';tr.children[1].textContent=r.n;
+const ti=document.createElement('input');ti.value=r.t;ti.size=7;tr.children[2].appendChild(ti);
+const ok=document.createElement('button');ok.textContent='Modifier';ok.onclick=async()=>{await api({op:'set',lv:+$('lv').value,list:$('list').value,name:r.n,t:+ti.value});$('msg').textContent='Temps modifie';load()};
+const de=document.createElement('button');de.className='d';de.textContent='Supprimer';de.onclick=async()=>{if(!confirm('Supprimer '+r.n+' ?'))return;await api({op:'del',lv:+$('lv').value,list:$('list').value,name:r.n});$('msg').textContent='Temps supprime';load()};
+tr.children[4].append(ok,' ',de);tb.appendChild(tr)});if(!j.rows.length)tb.innerHTML='<tr><td colspan=5>Aucun temps</td></tr>'}
+for(let i=1;i<=${PK_LEVELS};i++){const o=document.createElement('option');o.value=i;o.textContent='Niveau '+i;$('lv').appendChild(o)}
+$('go').onclick=async()=>{pw=$('pw').value;try{await api({op:'list',lv:1,list:'all'});sessionStorage.setItem('apw',pw);$('msg').textContent='';show();load()}catch(e){}};
+$('lv').onchange=$('list').onchange=$('reload').onclick=()=>{$('msg').textContent='';load()};
+$('clear').onclick=async()=>{if(!confirm('Vider TOUS les temps du niveau '+$('lv').value+' ?'))return;await api({op:'clear',lv:+$('lv').value});$('msg').textContent='Niveau vide';load()};
+if(pw)api({op:'list',lv:1,list:'all'}).then(()=>{show();load()}).catch(()=>{sessionStorage.removeItem('apw')});
+</script></body></html>`;
+function adminHandler(req, res) {
+  const pwEnv = process.env.ADMIN_PASSWORD;
+  const json = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
+  if (!pwEnv) { res.writeHead(404); res.end('Not found'); return; }
+  if (req.method === 'GET' && (req.url === '/admin' || req.url === '/admin/')) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(ADMIN_HTML); return; }
+  if (req.method !== 'POST' || req.url !== '/admin/api') { res.writeHead(404); res.end('Not found'); return; }
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?', now = Date.now();
+  const f = adminFails.get(ip) || { n: 0, t: now };
+  if (now - f.t > 600000) { f.n = 0; f.t = now; }
+  if (f.n >= 8) { json(429, { err: 'Trop d\'essais, reessaie dans 10 minutes' }); return; }
+  let body = '';
+  req.on('data', (d) => { body += d; if (body.length > 4096) req.destroy(); });
+  req.on('end', () => {
+    let m; try { m = JSON.parse(body); } catch (e) { json(400, { err: 'Requete invalide' }); return; }
+    const a = crypto.createHash('sha256').update(String(m.pw || '')).digest(), b = crypto.createHash('sha256').update(pwEnv).digest();
+    if (!crypto.timingSafeEqual(a, b)) { f.n++; adminFails.set(ip, f); json(401, { err: 'Mot de passe incorrect' }); return; }
+    const lv = Math.floor(+m.lv);
+    if (!(lv >= 1 && lv <= PK_LEVELS)) { json(400, { err: 'Niveau invalide' }); return; }
+    const sc = levelScores(lv), lists = { all: sc.all, day: sc.day.rows, month: sc.month.rows };
+    const name = String(m.name || '').toLowerCase();
+    if (m.op === 'list') {
+      const l = lists[m.list] || sc.all; json(200, { rows: l.map((r) => ({ n: r.n, t: r.t, r: r.r ? 1 : 0 })) }); return;
+    }
+    if (m.op === 'clear') { sc.all.length = 0; sc.day.rows.length = 0; sc.month.rows.length = 0; }
+    else if (m.op === 'del') { const l = lists[m.list]; if (!l) { json(400, { err: 'Classement invalide' }); return; } const i = l.findIndex((r) => r.n.toLowerCase() === name); if (i >= 0) l.splice(i, 1); }
+    else if (m.op === 'set') {
+      const t = Math.round(+m.t * 100) / 100; if (!(t > 0 && t < 36000)) { json(400, { err: 'Temps invalide' }); return; }
+      const l = lists[m.list]; if (!l) { json(400, { err: 'Classement invalide' }); return; }
+      const r = l.find((x) => x.n.toLowerCase() === name); if (!r) { json(404, { err: 'Joueur introuvable' }); return; }
+      r.t = t; l.sort((p, q) => p.t - q.t);
+      for (let i = 10; i < l.length; i++) if (l[i].r) delete l[i].r;
+    } else { json(400, { err: 'Action inconnue' }); return; }
+    saveScores(); try { sendBoard(lv); } catch (e) {}
+    json(200, { ok: 1 });
+  });
+}
 
 // ---- maps live in maps.js; each room has room.map ----
 const PLAYER_H = 1.8;
@@ -377,6 +444,7 @@ if (!scores._m2) {      // levels were renumbered: the cave level (11) was remov
   delete scores[11]; if (scores[12]) { scores[11] = scores[12]; delete scores[12]; }
   scores._m2 = 1;
 }
+if (!scores._m3) { delete scores[12]; scores._m3 = 1; }      // level 12 was replaced by a new, even shorter map
 let saveT = null;
 function saveScores() { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(SCORE_FILE, JSON.stringify(scores), () => {}); }, 2000); }
 // each level keeps three boards: today, this month and all time (days and months follow Paris time)
@@ -456,8 +524,11 @@ wss.on('connection', (ws) => {
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
       const map = room.map, pk = map.pk;
       let nx = m.x, nz = m.z;
-      const maxd = 34 * dt + 1.2, dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz);
+      // speed limit with a movement budget: it refills at 21 u/s (bhop tops out at 17) and holds at most 6 u, so neither lag bursts nor flooding position messages can skip ahead
+      me.bud = Math.min(6, (me.bud == null ? 6 : me.bud) + 21 * dt);
+      const dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz), maxd = pk ? me.bud : 34 * dt + 1.2;
       if (dd > maxd) { nx = me.x + dx / dd * maxd; nz = me.z + dz / dd * maxd; }
+      if (pk) me.bud = Math.max(0, me.bud - Math.min(dd, maxd));
       const p = { x: nx, z: nz }; pushOut(map, p, 0.45, m.y);
       me.x = p.x; me.z = p.z; me.yaw = m.yaw; me.pitch = clamp(m.pitch, -1.5, 1.5);
       if (!pk) {
@@ -475,6 +546,7 @@ wss.on('connection', (ws) => {
       if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < (pk.cpR || 2.6) && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
       else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < 3.2 && Math.abs(me.y - pk.fin[1]) < 2.2) {
         const time = (Date.now() - me.pkStart) / 1000;
+        if (time < Math.max(0, Math.hypot(pk.fin[0] - pk.start[0], pk.fin[2] - pk.start[2]) - 7) / 21) return;      // faster than the straight line at top speed: impossible, so not saved
         me.finished = true;
         const res = recordTime(room.level, me.name, Math.round(time * 100) / 100, flatRec(me.rec));
         send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
