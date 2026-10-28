@@ -1,6 +1,6 @@
 # Purple Arena Online
 
-> **Note:** Deathmatch and Surf are no longer selectable in the menu; the game is parkour only (15 levels). Older Deathmatch sections below are kept for reference.
+> **Note:** Deathmatch and Surf are no longer selectable in the menu; the game is parkour only (11 levels). Older Deathmatch sections below are kept for reference.
 
 FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deux modes, un seul serveur, aucune installation côté joueur : on ouvre un lien et on joue.
 
@@ -143,9 +143,8 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Parkour on phones: ◀ ▶ arrow buttons replace the joystick (running forward, with an FWD button to toggle auto-run), big JUMP (hold = auto bhop), **AUTO** (locks jump held), **ASSIST** (swiping to turn in the air also strafes that way, which is what builds speed).
 - Bhop HUD (all devices, parkour): speed bar, bhop combo and strafe sync %.
 
-## Parkour: 15 levels
-- The game is parkour only now (Surf and Deathmatch were removed).
+## Parkour: 11 levels
+- The game is parkour only (Surf and Deathmatch are not selectable anymore).
 - Levels 1 to 10 are unchanged, so existing records and replays stay valid.
-- New levels 11 to 15: Sunset Canyon, Toxic Swamp, Aurora Peaks, Cloud Kingdom, The Gauntlet.
-- Level 15 (The Gauntlet) is long (73 platforms, about 757 m) with large platforms and 5 checkpoints. Falling respawns you at the last checkpoint and the clock keeps running. R restarts the run. The finish only counts after all checkpoints.
+- Level 11, Deep Caverns: a long cave course (54 platforms, about 525 m) with solid rock walls all around, rock pillars and wall slabs between the platforms, and no checkpoints. Rendered with bump-mapped rock, a rock ceiling with stalactites, flickering wall torches, a headlamp and an underground lake below.
 

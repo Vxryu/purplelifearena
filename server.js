@@ -1,5 +1,5 @@
 // Purple Arena - authoritative multiplayer server with two game modes:
-//   pk       Parkour: 15 timed levels (one biome each) with bunny hop, best times saved per level (the last level has checkpoints)
+//   pk       Parkour: 11 timed levels (one biome each) with bunny hop, best times saved per level
 // Clients send their position and shots. The server runs hit detection, scores and the parkour timer.
 
 const http = require('http');

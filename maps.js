@@ -161,11 +161,7 @@ const PK_INFO = [
   { th: 'abyss', name: 'Abyssal Depths', col: 0x2a5a6a },
   { th: 'neon', name: 'Neon City', col: 0x2b1b55 },
   { th: 'space', name: 'Outer Space', col: 0x3a3a5a },
-  { th: 'canyon', name: 'Sunset Canyon', col: 0xc9663a },
-  { th: 'swamp', name: 'Toxic Swamp', col: 0x56703a },
-  { th: 'aurora', name: 'Aurora Peaks', col: 0x8fd0e6 },
-  { th: 'sky', name: 'Cloud Kingdom', col: 0xe8eef8 },
-  { th: 'finale', name: 'The Gauntlet', col: 0x3a2a5a }
+  { th: 'cavern', name: 'Deep Caverns', col: 0x5a4e45 }
 ];
 const PK_LEVELS = PK_INFO.length;
 function airtime(dy) { const disc = 49 - 40 * dy; return disc < 0 ? 0 : (7 + Math.sqrt(disc)) / 20; }
@@ -176,8 +172,8 @@ function gapDist(a, b) {
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
 function parkour(L) {
   const r = rng(L * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = (L - 1) / 9, band = PK_INFO[L - 1], big = L === PK_LEVELS;     // t keeps the old value for levels 1-10, so their layouts did not change; the last level is long, hard and roomy
-  const f = big ? 0.8 : 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [], cps = [];     // gentler than before: shorter gaps, bigger platforms
-  const N = big ? 72 : 10 + Math.round(L * 2.2);
+  const f = big ? 0.7 : 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [], cps = [];     // gentler than before: shorter gaps, bigger platforms
+  const N = big ? 54 : 10 + Math.round(L * 2.2);
   const col = band.col;
   const mk = (x, z, w, d, top, kind) => { const b = B(kind || 'plat', x, z, w, d, 0.7, col, top - 0.7); b.top = top; return b; };
   const start = mk(0, 0, 7, 7, 0, 'start'); plats.push(start); boxes.push(start);
@@ -189,8 +185,8 @@ function parkour(L) {
     for (let tries = 0; tries < 40 && !placed; tries++) {
       let d2 = dir;
       if ((r() < (big ? 0.34 : 0.1 + 0.2 * t) || tries > 8) && !(prevRun && tries <= 20)) { const s = r() < 0.5 ? 1 : -1; d2 = dir[0] === 0 ? [s, 0] : [0, s]; }
-      const last = i === N, isCp = big && !last && i % 14 === 0, run = !last && !isCp && L >= 4 && i > 1 && placedRunOk && r() < 0.1 + 0.1 * Math.min(t, 1), size = last || isCp ? 6 : big ? 4.8 + r() * 2.4 : Math.max(3.1, (5.6 - 2.1 * t) * (0.85 + r() * 0.4));
-      let w = size, dd = last || isCp ? 6 : big ? 4.8 + r() * 2.4 : Math.max(3.1, size * (0.85 + r() * 0.3));
+      const last = i === N, isCp = false, run = !last && !isCp && L >= 4 && i > 1 && placedRunOk && r() < 0.1 + 0.1 * Math.min(t, 1), size = last || isCp ? 6 : big ? 4.4 + r() * 2.2 : Math.max(3.1, (5.6 - 2.1 * t) * (0.85 + r() * 0.4));
+      let w = size, dd = last || isCp ? 6 : big ? 4.4 + r() * 2.2 : Math.max(3.1, size * (0.85 + r() * 0.3));
       if (run) { const rw = big ? 4.6 : 3.4; if (d2[0] === 0) { w = rw; dd = 12; } else { w = 12; dd = rw; } }
       const up = r() < 0.4 ? r() * (0.25 + 0.45 * t) : -r() * (0.6 + 1.4 * t);
       const top = Math.max(-2, prev.top + (last ? Math.min(up, 0) : up));
@@ -209,7 +205,7 @@ function parkour(L) {
       placed = c; dir = d2; placed.run = run;
     }
     if (!placed) { // fallback: straight, easy step
-      const w = i === N ? 6 : big ? 5 : 3, dd = w, c = mk(prev.x + dir[0] * (prev.w / 2 + 3 + w / 2), prev.z + dir[1] * (prev.d / 2 + 3 + dd / 2), w, dd, prev.top, i === N ? 'finish' : big && i % 14 === 0 ? 'cp' : 'plat');
+      const w = i === N ? 6 : big ? 5 : 3, dd = w, c = mk(prev.x + dir[0] * (prev.w / 2 + 3 + w / 2), prev.z + dir[1] * (prev.d / 2 + 3 + dd / 2), w, dd, prev.top, i === N ? 'finish' : 'plat');
       placed = c;
     }
     pathLen += Math.hypot(placed.x - prev.x, placed.z - prev.z);
@@ -219,10 +215,29 @@ function parkour(L) {
   const fin = plats[plats.length - 1];
   let minY = 0, maxY = 0, minX = 0, maxX = 0, minZ = 0, maxZ = 0;
   for (const p of plats) { minY = Math.min(minY, p.top); maxY = Math.max(maxY, p.top); minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
+  if (big) {   // the last level is a cavern: solid rock walls all around, plus rock pillars and wall slabs standing between the platforms
+    const M = 18, T = 8, y0 = minY - 20, H = maxY - minY + 60, x0 = minX - M, x1 = maxX + M, z0 = minZ - M, z1 = maxZ + M;
+    const wall = (x, z, w, d) => { const b = B('cave', x, z, w, d, H, col, y0); boxes.push(b); return b; };
+    wall((x0 + x1) / 2, z0 - T / 2, x1 - x0 + 2 * T, T); wall((x0 + x1) / 2, z1 + T / 2, x1 - x0 + 2 * T, T);
+    wall(x0 - T / 2, (z0 + z1) / 2, T, z1 - z0); wall(x1 + T / 2, (z0 + z1) / 2, T, z1 - z0);
+    const segDist = (px, pz, a, b2) => { const vx = b2.x - a.x, vz = b2.z - a.z, l2 = vx * vx + vz * vz || 1, k = Math.max(0, Math.min(1, ((px - a.x) * vx + (pz - a.z) * vz) / l2)); return Math.hypot(px - a.x - vx * k, pz - a.z - vz * k); };
+    let made = 0;
+    for (let tries = 0; tries < 900 && made < 46; tries++) {
+      const long = r() < 0.5, ax = r() < 0.5, w = long ? (ax ? 10 + r() * 8 : 2.4 + r() * 1.6) : 2.4 + r() * 3, d = long ? (ax ? 2.4 + r() * 1.6 : 10 + r() * 8) : w;
+      const x = x0 + 4 + r() * (x1 - x0 - 8), z = z0 + 4 + r() * (z1 - z0 - 8);
+      const probe = { x, z, w, d };
+      if (plats.some((p) => Math.abs(p.x - x) < (p.w + w) / 2 + 5 && Math.abs(p.z - z) < (p.d + d) / 2 + 5)) continue;
+      let ok = true;
+      for (let k = 1; k < plats.length && ok; k++) { const a = plats[k - 1], b2 = plats[k], need = Math.max(w, d) / 2 + 4.5; if (segDist(x, z, a, b2) < need) ok = false; }
+      if (!ok || (Math.abs(x) < w / 2 + 12 && z + d / 2 > -6 && z - d / 2 < 22) || Math.hypot(x - fin.x, z - fin.z) < Math.max(w, d) / 2 + 14) continue;
+      if (boxes.some((b2) => b2.kind === 'cave' && b2.h < H - 1 && overlaps(b2, probe, 2))) continue;
+      const b = B('cave', x, z, w, d, H, col, y0); boxes.push(b); made++;
+    }
+  }
   return {
     id: 'pk' + L, name: 'Level ' + L + ' - ' + band.name, biome: band.th, th: band.th, half: 2000, boxes, spawns: [[0, 0]], pk: {
       lv: L, n: PK_LEVELS, start: [0, 0, 0], cps, cpR: 4.2, fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
-      bounds: [minX - 20, maxX + 20, minZ - 20, maxZ + 20, minY, maxY]
+      bounds: [minX - (big ? 18 : 20), maxX + (big ? 18 : 20), minZ - (big ? 18 : 20), maxZ + (big ? 18 : 20), minY, maxY]
     }
   };
 }
