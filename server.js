@@ -459,14 +459,14 @@ function levelScores(lv) {
   return s;
 }
 function board(lv) {
-  const s = levelScores(lv), f = (l) => l.slice(0, 10).map((r) => [r.n, r.t, r.r ? 1 : 0]);
+  const s = levelScores(lv), f = (l) => l.slice(0, 100).map((r) => [r.n, r.t, r.r ? 1 : 0]);
   return { d: f(s.day.rows), m: f(s.month.rows), a: f(s.all) };
 }
 function addTime(list, name, time, rec) {
   const key = name.toLowerCase(), old = list.find((r) => r.n.toLowerCase() === key);
   let better = false;
   if (!old) { list.push({ n: name, t: time, r: rec || undefined }); better = true; } else if (time < old.t) { old.t = time; old.n = name; old.r = rec || undefined; better = true; }
-  list.sort((a, b) => a.t - b.t); if (list.length > 50) list.length = 50;
+  list.sort((a, b) => a.t - b.t); if (list.length > 100) list.length = 100;
   for (let i = 10; i < list.length; i++) if (list[i].r) delete list[i].r;      // only the top 10 keep their replay
   return better;
 }

@@ -231,6 +231,8 @@ body.touch #bhbar { width: 150px; }
 #tlvl .tp { position: static; }
 #tboard { right: 3vh; top: 21vh; }
 #tcam { right: 3vh; top: 39vh; }
+#tbs { position: absolute; right: 3vh; top: 48vh; display: flex; gap: 1vh; }
+#tbs .tp { position: static; }
 #touch .pkonly { display: none; }
 #touch .tb small.pkonly { display: none; }
 #touch.pk .tb small.pkonly { display: block; }
@@ -382,6 +384,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   <button class="tp" id="tchat" data-tb="chat">💬 Chat</button>
   <button class="tp pkonly" id="trestart" data-tb="restart">⟲ Restart</button>
   <div id="tlvl" class="pkonly"><button class="tp" data-tb="prev">◀ Level</button><button class="tp" data-tb="next">Level ▶</button></div>
+  <div id="tbs" class="pkonly"><button class="tp" data-tb="bup">▲ Board</button><button class="tp" data-tb="bdn">Board ▼</button></div>
   <button class="tp pkonly" id="tcam" data-tb="cam">📷 Cam</button>
   <button class="tp pkonly" id="tboard" data-tb="board">🏆 Day / Month / All</button>
   <button class="tb dmonly" id="tdash" data-tb="dash">DASH</button>
@@ -726,6 +729,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     return { mesh, cv, tx, w, h };
   }
   const fmtT = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
+  let boardOff = 0;
   function drawBoard(b, title, rows, you, per) {
     if (!b) return;
     const c = b.cv.getContext('2d'), W = b.cv.width, H = b.cv.height;
@@ -737,13 +741,15 @@ body.touch #tutcap span { font-size: 0.78rem; }
     ['DAILY', 'MONTHLY', 'ALL-TIME'].forEach((lab, i) => { c.fillStyle = i === per ? '#ffd166' : '#8f7fc0'; c.fillText(i === per ? '[ ' + lab + ' ]' : lab, W / 2 + (i - 1) * 165, 96); });
     c.textAlign = 'left'; c.font = '700 30px system-ui, sans-serif';
     if (!rows.length) { c.textAlign = 'center'; c.fillStyle = '#d9ccf5'; c.fillText('No time yet. Be the first!', W / 2, H / 2 + 10); }
-    rows.slice(0, 8).forEach((r, i) => {
-      const y = 148 + i * 44, me = r[0].toLowerCase() === (cfg.name || '').toLowerCase();
+    const VIS = 5, off = Math.max(0, Math.min(boardOff, Math.max(0, rows.length - VIS)));
+    rows.slice(off, off + VIS).forEach((r, k) => {
+      const i = off + k, y = 140 + k * 42, me = r[0].toLowerCase() === (cfg.name || '').toLowerCase();
       c.fillStyle = me ? '#ffd166' : i === 0 ? '#ffe9a8' : '#f1eaff';
       c.textAlign = 'left'; c.fillText((i + 1) + '. ' + r[0].slice(0, 14), 40, y);
       c.textAlign = 'right'; c.fillText(fmtT(r[1]), W - 40, y);
     });
-    if (you != null) { c.textAlign = 'center'; c.fillStyle = '#7dffb0'; c.font = '800 30px system-ui, sans-serif'; c.fillText('Your time: ' + fmtT(you), W / 2, H - 28); }
+    if (you != null) { c.textAlign = 'center'; c.fillStyle = '#7dffb0'; c.font = '800 28px system-ui, sans-serif'; c.fillText('Your time: ' + fmtT(you), W / 2, H - 42); }
+    if (rows.length > VIS) { c.textAlign = 'center'; c.fillStyle = '#a99bc7'; c.font = '600 17px system-ui, sans-serif'; c.fillText('Mouse wheel / PgUp PgDn to scroll  \u00b7  ' + (off + 1) + '-' + Math.min(rows.length, off + VIS) + ' of ' + rows.length, W / 2, H - 16); }
     b.tx.needsUpdate = true;
   }
 
@@ -1002,7 +1008,11 @@ body.touch #tutcap span { font-size: 0.78rem; }
     drawBoard(boardStart, 'LEVEL ' + pk.lv, rows, null, pkPeriod);
     drawBoard(boardFin, 'FINISH - LEVEL ' + pk.lv, rows, pkDone ? pkTime : null, pkPeriod);
   }
-  function nextPeriod(manual) { pkPeriod = (pkPeriod + 1) % 3; if (manual) pkPerAt = performance.now(); refreshBoards(); if (manual) banner(['Daily', 'Monthly', 'All-time'][pkPeriod] + ' leaderboard', 1100); }
+  function scrollBoards(d) {
+    const b = lbCache[mapInfo.pk && mapInfo.pk.lv] || {}, rows = [b.d, b.m, b.a][pkPeriod] || [];
+    boardOff = Math.max(0, Math.min(boardOff + d, Math.max(0, rows.length - 5))); pkPerAt = performance.now(); refreshBoards();
+  }
+  function nextPeriod(manual) { boardOff = 0; pkPeriod = (pkPeriod + 1) % 3; if (manual) pkPerAt = performance.now(); refreshBoards(); if (manual) banner(['Daily', 'Monthly', 'All-time'][pkPeriod] + ' leaderboard', 1100); }
   setInterval(() => { if (mapInfo.pk && state !== 'menu' && performance.now() - pkPerAt > 15000) nextPeriod(false); }, 7000);
 
   function rampH(b, x, z) {
@@ -1938,6 +1948,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if ((e.code === 'Enter' || e.code === 'KeyT') && state === 'play' && !e.repeat) { e.preventDefault(); openChat(); return; }
     if (!e.repeat && e.code.startsWith('Digit') && '123'.includes(e.code[5])) setWeapon(SLOTS[+e.code[5] - 1]);
     if (e.code === 'KeyV' && !e.repeat && state === 'play' && mapInfo.pk) nextPeriod(true);
+    if ((e.code === 'PageDown' || e.code === 'PageUp') && state === 'play' && mapInfo.pk) { e.preventDefault(); scrollBoards(e.code === 'PageDown' ? 3 : -3); }
     if (e.code === 'KeyP' && !e.repeat && state === 'play' && !chatOpen) { thirdP = !thirdP; try { localStorage.setItem('parena_tp', thirdP ? '1' : '0'); } catch (err) {} }
     if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
@@ -1962,7 +1973,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; if (e.button === 2) rmb = false; });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseDown = false; rmb = false; });
-  addEventListener('wheel', (e) => { if (state !== 'play' || runMode !== 'dm' || chatOpen) return; const i = SLOTS.indexOf(P.weapon); setWeapon(SLOTS[(i + (e.deltaY > 0 ? 1 : 2)) % 3]); }, { passive: true });
+  addEventListener('wheel', (e) => { if (state === 'play' && runMode === 'pk' && !chatOpen) { scrollBoards(e.deltaY > 0 ? 1 : -1); return; } if (state !== 'play' || runMode !== 'dm' || chatOpen) return; const i = SLOTS.indexOf(P.weapon); setWeapon(SLOTS[(i + (e.deltaY > 0 ? 1 : 2)) % 3]); }, { passive: true });
 
 
   // ---------- touch controls ----------
@@ -2005,7 +2016,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     auto:  { down() { autoJ = !autoJ; $('tauto').classList.toggle('lock', autoJ); fakeKey('Space', autoJ); } },
     assist: { down() { cfg.assist = cfg.assist === false; saveCfg(); $('tassist').classList.toggle('lock', cfg.assist !== false); } },
     reload: { tap: 'KeyR' }, dash: { tap: 'KeyE' }, slide: { tap: 'KeyC' }, w1: { tap: 'Digit1' }, w2: { tap: 'Digit2' }, w3: { tap: 'Digit3' },
-    restart: { tap: 'KeyR' }, prev: { tap: 'KeyB' }, next: { tap: 'KeyN' }, board: { tap: 'KeyV' }, cam: { tap: 'KeyP' },
+    restart: { tap: 'KeyR' }, prev: { tap: 'KeyB' }, next: { tap: 'KeyN' }, board: { tap: 'KeyV' }, cam: { tap: 'KeyP' }, bup: { tap: 'PageUp' }, bdn: { tap: 'PageDown' },
     chat: { down() { openChat(); } },
     menu: { down() { if (state !== 'play') return; state = 'pause'; mouseDown = false; rmb = false; showCard('pause'); } }
   };

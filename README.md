@@ -154,3 +154,8 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Set the `ADMIN_PASSWORD` environment variable on Render (Environment tab), redeploy, then open `https://your-site.onrender.com/admin`.
 - Pick a level and a board (all-time, day, month), then change a time or delete a player. Changes apply immediately and are saved to `scores-v2.json`, no restart needed.
 - Without `ADMIN_PASSWORD` the page does not exist (404). After 8 wrong passwords an IP is locked for 10 minutes.
+
+## Leaderboards: 100 places
+- Each board (daily, monthly, all-time) now keeps 100 times (replays are still kept for the top 10 only).
+- In game, the boards at the start and finish show 5 rows at a time: scroll with the mouse wheel or PgUp / PgDn (the "Board" buttons on mobile). The Records box in the menu lists all 100.
+- The rank above a player's head (#1 to #100, "WORLD RECORD HOLDER" for #1) follows the all-time board of the level.
