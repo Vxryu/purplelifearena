@@ -445,6 +445,7 @@ if (!scores._m2) {      // levels were renumbered: the cave level (11) was remov
   delete scores[11]; if (scores[12]) { scores[11] = scores[12]; delete scores[12]; }
   scores._m2 = 1;
 }
+for (const k of [13, 14, 15]) delete scores[k];      // levels 13 to 15 were removed
 if (!scores._m3) { delete scores[12]; scores._m3 = 1; }      // level 12 was replaced by a new, even shorter map
 let saveT = null;
 function saveScores() { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(SCORE_FILE, JSON.stringify(scores), () => {}); }, 2000); }
@@ -503,8 +504,29 @@ function enterRoom(me, room) {
   respawn(room, me);
   if (room.mode === 'pk') sendBoard(room.level, me);
 }
-wss.on('connection', (ws) => {
+// ---- locked nicknames: a device picks one nickname and keeps it (stops people from making several accounts to flood the boards) ----
+const NAME_FILE = path.join(process.env.DATA_DIR || __dirname, 'names.json');
+let nameDB = {};      // device token -> { n: nickname, ip: ip }
+try { nameDB = JSON.parse(fs.readFileSync(NAME_FILE, 'utf8')); } catch (e) { nameDB = {}; }
+let nameSaveT = null;
+function saveNames() { if (nameSaveT) return; nameSaveT = setTimeout(() => { nameSaveT = null; fs.writeFile(NAME_FILE, JSON.stringify(nameDB), () => {}); }, 1000); }
+const MAX_NAMES_PER_IP = 2;
+// returns { name } (the nickname to use) or { err }
+function claimName(cid, wanted, ip) {
+  if (!/^[a-z0-9]{16,64}$/.test(cid || '')) return { err: 'Reload the page (Ctrl+F5) then try again.' };
+  const mine = nameDB[cid];
+  if (mine) return { name: mine.n };      // already locked: the nickname cannot be changed
+  const low = wanted.toLowerCase();
+  if (!wanted || low === 'player') return { err: 'Pick a nickname first. You will not be able to change it afterwards.' };
+  for (const k in nameDB) if (nameDB[k].n.toLowerCase() === low) return { err: 'This nickname is already taken.' };
+  let sameIp = 0; for (const k in nameDB) if (nameDB[k].ip === ip) sameIp++;
+  if (sameIp >= MAX_NAMES_PER_IP) return { err: 'Too many nicknames from this connection.' };
+  nameDB[cid] = { n: wanted, ip }; saveNames();
+  return { name: wanted };
+}
+wss.on('connection', (ws, req) => {
   let me = null;
+  const ipRaw = String((req && req.headers && req.headers['x-forwarded-for']) || (req && req.socket && req.socket.remoteAddress) || '?').split(',')[0].trim();
   ws.on('message', (data) => {
     let m; try { m = JSON.parse(data); } catch (e) { return; }
     if (!m || typeof m !== 'object') return;
@@ -513,7 +535,11 @@ wss.on('connection', (ws) => {
       const r = pkRoom(clamp(Math.floor(+m.level) || 1, 1, PK_LEVELS));     // parkour is the only mode now
       if (!r) return;
       if (r.players.size >= MAX_PER_ROOM) { ws.send(JSON.stringify({ t: 'full' })); return; }
-      const name = String(m.name || 'Player').replace(/[<>&"'`]/g, '').trim().slice(0, 14) || 'Player';
+      const wanted = String(m.name || '').replace(/[<>&"'`]/g, '').trim().slice(0, 14);
+      const cl = claimName(String(m.cid || ''), wanted, ipRaw);
+      if (cl.err) { ws.send(JSON.stringify({ t: 'nameerr', e: cl.err })); return; }
+      const name = cl.name;
+      ws.send(JSON.stringify({ t: 'name', n: name }));
       me = { id: nextId++, ws, name, color: validColor(m.color) || PALETTE[Math.floor(Math.random() * PALETTE.length)], tone: clamp(Math.floor(+m.tone) || 0, 0, 4), skin: clamp(Math.floor(+m.skin) || 0, 0, 10),
         weapon: WEAPONS[m.weapon] ? m.weapon : 'rifle', room: null, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: 100, dead: false, deadT: 0, inv: 0, hurtT: 99,
         kills: 0, deaths: 0, heads: 0, streak: 0, best: 0, coinsRun: 0, lastShot: 0, lastSniper: 0, lastStab: 0, lastThrow: 0, swapT: 0, cur: 'rifle', lastChat: 0, lastSt: Date.now(), cp: 0, pkStart: 0, finished: false, falls: 0 };
@@ -523,7 +549,7 @@ wss.on('connection', (ws) => {
     } else if (m.t === 'st' && me && !me.dead) {
       if (![m.x, m.y, m.z, m.yaw, m.pitch].every((v) => typeof v === 'number' && isFinite(v))) return;
       if ((m.rs !== undefined || me.rsSeen) && (m.rs | 0) !== (me.rs | 0)) { if (m.rs !== undefined) me.rsSeen = true; return; }      // stale position from before the respawn (it would start the clock again)
-      if (m.rs !== undefined) me.rsSeen = true;
+      if (m.rs !== undefined) me.rsSeen = true; else if (!me.rsSeen && Date.now() - (me.respT || 0) < 450) return;      // page without the respawn counter: ignore updates right after a respawn
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
       const map = room.map, pk = map.pk;
       let nx = m.x, nz = m.z;

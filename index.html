@@ -430,7 +430,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     <button id="tutbtn" class="ghost" type="button" hidden>&#9654; Learn to bunny hop (tutorial)</button>
     <p id="msg"></p>
     <div id="setup">
-      <input type="text" id="name" maxlength="14" placeholder="Your name" autocomplete="off" aria-label="Your name">
+      <input type="text" id="name" maxlength="14" placeholder="Your name (cannot be changed later)" autocomplete="off" aria-label="Your name">
       <details open><summary>Look</summary>
         <div class="swl">Shirt color</div><div class="swatches" id="swatches" role="group" aria-label="Shirt color"></div>
         <div class="swl">Skin tone</div><div class="swatches tones" id="tones" role="group" aria-label="Skin tone"></div>
@@ -516,7 +516,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   const TONES = ['#f1c9a5', '#e0ac82', '#c68863', '#8d5a3b', '#5a3a26'];
   const COLORS = ['#b46bff', '#ff4d7a', '#4ad1c2', '#ffb347', '#7aa8ff', '#9be15d', '#f1eaff', '#ff7a45'];
   const MODES = { dm: 'Deathmatch', camp: 'Campaign', endless: 'Endless', pk: 'Parkour' };
-  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space', 'Final Sprint', 'Blink', 'Blue Lane', 'Sideways Run', 'Stair Climb'];
+  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space', 'Final Sprint', 'Blink'];
   const PK_N = PK_NAMES.length;
   // weapon skins, unlocked with your total kills over all matches (saved in this browser)
   const SKINS = [
@@ -553,7 +553,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   const myWeapon = () => (cfg.mode === 'dm' ? 'rifle' : wallet.equipped);
 
   $('sens').value = cfg.sens; $('sensv').textContent = (+cfg.sens).toFixed(2);
-  $('fov').value = cfg.fov; $('fovv').textContent = cfg.fov; $('name').value = cfg.name || '';
+  $('fov').value = cfg.fov; $('fovv').textContent = cfg.fov; $('name').value = cfg.name || ''; if (cfg.locked) { $('name').readOnly = true; $('name').title = 'Your nickname is locked'; }
   $('sens').addEventListener('input', () => { cfg.sens = +$('sens').value; $('sensv').textContent = cfg.sens.toFixed(2); saveCfg(); });
   $('ksopt').checked = cfg.ks !== false;
   $('ksopt').addEventListener('change', () => { cfg.ks = $('ksopt').checked; saveCfg(); });
@@ -596,7 +596,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   }
   function renderModes() {
     document.querySelectorAll('.mode').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === cfg.mode)));
-    const m = { pk: '15 levels, all open. Levels 13 to 15 are blue corridors with walls (bhop style). Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
+    const m = { pk: '12 levels, all open. The last two are short sprints. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
     if (state === 'menu') setMsg(m[cfg.mode]);
   }
   document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); rpRender(); }));
@@ -664,14 +664,12 @@ body.touch #tutcap span { font-size: 0.78rem; }
     volcano: { sky: [0x180404, 0x461008, 0x8a2a0c], fog: [0x2a0a05, 25, 140], hemi: [0xff9a5a, 0x3a0f05, 0.75], sun: [0xff7a3a, 0.6], floor: 'rock', out: 'rock', edge: 0x2a1410, glow: 0x4a1a08, lava: 1, embers: 1 },
     abyss:   { sky: [0x010a14, 0x03203a, 0x063a5a], fog: [0x03182b, 10, 90], hemi: [0x2a6a9a, 0x04101a, 0.6], sun: [0x4aa0d0, 0.35], floor: 'rock', out: 'rock', edge: 0x063a5a, glow: 0x0d3a44, pkWater: 1, lantern: 1 },
     cavern:  { sky: [0x020101, 0x050403, 0x0a0706], fog: [0x0b0806, 5, 82], hemi: [0x8a7a6a, 0x201812, 0.55], sun: [0xffe0b8, 0.18], floor: 'rock', out: 'rock', edge: 0x18110d, lantern: 1, pkWater: 1, cavern: 1 },
-    bhop:    { sky: [0x2f78d0, 0x7fb6ec, 0xd7e8f8], fog: [0xc3dcf3, 70, 300], hemi: [0xeaf4ff, 0x8095b0, 1.0], sun: [0xffffff, 0.95], floor: 'tile', out: 'tile', edge: 0x0a3a9a, bhop: 1 },
     space:   { sky: [0x000004, 0x05031a, 0x0d0630], fog: [0x03010f, 80, 300], hemi: [0x8a8aff, 0x10102a, 0.65], sun: [0xffffff, 0.85], floor: 'rock', out: 'rock', edge: 0x10102a, stars: 1, glow: 0x1c1c44, void: 1 }
   };
   const FLOORS = {
     asphalt: () => gtex('asphalt', T.asphalt, 15, 15), grass: () => gtex('grass', T.grass, 40, 40), leaf: () => gtex('floorleaf', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#26301c'; x.fillRect(0, 0, w, h); noise(x, w, h, 5000, 0.45, false); noise(x, w, h, 2500, 0.18, true); }), 60, 60),
     snow: () => gtex('snow', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#e6eef5'; x.fillRect(0, 0, w, h); noise(x, w, h, 2500, 0.1, false); noise(x, w, h, 1500, 0.35, true); }), 50, 50),
     metal: () => gtex('metal', T.metal, 40, 40), rock: () => gtex('floorrock', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#3a3330'; x.fillRect(0, 0, w, h); noise(x, w, h, 4500, 0.45, false); noise(x, w, h, 2200, 0.2, true); }), 50, 50),
-    tile: () => gtex('floortile', () => tex(128, 128, (x, w, h) => { x.fillStyle = '#c9ced1'; x.fillRect(0, 0, w, h); noise(x, w, h, 900, 0.1, false); x.strokeStyle = 'rgba(255,255,255,0.75)'; x.lineWidth = 2; x.strokeRect(0, 0, w, h); x.strokeStyle = 'rgba(150,158,165,0.55)'; x.lineWidth = 1; x.beginPath(); x.moveTo(w / 2, 0); x.lineTo(w / 2, h); x.moveTo(0, h / 2); x.lineTo(w, h / 2); x.stroke(); }), 1, 1),
     sand: () => gtex('sand', () => tex(256, 256, (x, w, h) => { x.fillStyle = '#b9a577'; x.fillRect(0, 0, w, h); noise(x, w, h, 4000, 0.3, false); noise(x, w, h, 2000, 0.25, true); }), 50, 50)
   };
 
@@ -826,7 +824,6 @@ body.touch #tutcap span { font-size: 0.78rem; }
         const beam = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, d) / 2 - 0.2, Math.min(w, d) / 2 - 0.2, 14, 16, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
         beam.position.set(x, y0 + h + 7, z); world.add(beam); glowPulse.push(beam);
       }
-      if (pk && th.bhop && kind === 'plat') { const cap = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.72, d * 0.72), new THREE.MeshBasicMaterial({ color: 0xdfe6ec })); cap.rotation.x = -Math.PI / 2; cap.position.y = h / 2 + 0.012; mesh.add(cap); }
       if (pk && (kind === 'plat' || kind === 'start' || kind === 'finish')) {
         addUnderbody(x, z, w, d, y0, col);
         propPlats.push([x, z, w, d, y0 + h]);
@@ -882,7 +879,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   // what hangs under a floating platform, per biome
   function addUnderbody(x, z, w, d, y0, col) {
     const id = mapInfo.th;
-    if (id === 'neon' || id === 'space' || id === 'bhop') return;
+    if (id === 'neon' || id === 'space') return;
     const mat = lam('ub' + id + col, () => new THREE.MeshLambertMaterial({ color: new THREE.Color(col).multiplyScalar(0.6), map: gtex('rockflat', () => T.flat('#808080'), 2, 2) }));
     if (id === 'water') {
       const bark = lam('bark', () => new THREE.MeshLambertMaterial({ map: gtex('bark', T.bark, 1, 1) }));
@@ -968,7 +965,6 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const gy = pk.kill + 1.0, spots = [], id = mapInfo.th, span = Math.max(1, maxY - gy);
     for (let i = 0; i < 400 && spots.length < 90; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (!near(x, z)) spots.push([x, z]); }
     if (id === 'cavern') { buildCavern(pk, msg, rnd, gy); return; }
-    if (id === 'bhop') return;      // the walls and the tile floor are the scenery
     if (id === 'forest') { buildTreesTall(spots.map((s2) => [s2[0], s2[1], 9]), gy, span + 8); return; }
     const mm = (c, extra) => new THREE.MeshLambertMaterial(Object.assign({ color: c }, extra || {}));
     // per biome: geometry, material, [min height, max height], width scale, y mode
@@ -1416,11 +1412,17 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function setMsg(t) { $('msg').textContent = t; }
   const esc = (s) => String(s).replace(/[<>&]/g, '');
 
+  function getCid() {
+    let c = ''; try { c = localStorage.getItem('parena_cid') || ''; } catch (e) {}
+    if (!/^[a-z0-9]{16,64}$/.test(c)) { c = ''; for (let i = 0; i < 32; i++) c += Math.floor(Math.random() * 36).toString(36); try { localStorage.setItem('parena_cid', c); } catch (e) {} }
+    return c;
+  }
+  function lockNameUI(n) { cfg.name = n; cfg.locked = 1; saveCfg(); $('name').value = n; $('name').readOnly = true; $('name').title = 'Your nickname is locked'; }
   function connect() {
     if (!/^https?:$/.test(location.protocol)) { setMsg('Open the game through the server address (not as a file) to play online.'); $('play').disabled = false; return; }
     setMsg('Connecting...'); $('play').disabled = true;
-    const name = ($('name').value.trim() || 'Player').slice(0, 14); cfg.name = name; saveCfg();
-    const join = () => wsSend({ t: 'join', mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
+    const name = ($('name').value.trim() || (cfg.locked ? cfg.name : '') || '').slice(0, 14); if (!cfg.locked) { cfg.name = name; saveCfg(); }
+    const join = () => wsSend({ t: 'join', cid: getCid(), mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
     if (ws && ws.readyState === 1) { join(); return; }
     let sock; try { sock = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); } catch (e) { setMsg('Could not reach the server.'); $('play').disabled = false; return; }
     ws = sock; let opened = false;
@@ -1475,6 +1477,10 @@ body.touch #tutcap span { font-size: 0.78rem; }
       lbCache[m.lv] = m.b;
       if (mapInfo.pk && mapInfo.pk.lv === m.lv) { refreshBoards(); pkHud(); }
       if (!$('rpbox').hidden) rpRender();
+    } else if (m.t === 'name') {
+      lockNameUI(m.n);
+    } else if (m.t === 'nameerr') {
+      $('play').disabled = false; setMsg(m.e);
     } else if (m.t === 'full') {
       $('play').disabled = false; setMsg('This room is full. Try again in a moment.');
     } else if (m.t === 's') {
