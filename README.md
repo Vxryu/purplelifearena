@@ -9,7 +9,7 @@ FPS multijoueur dans le navigateur (Three.js + serveur Node.js autoritaire). Deu
 | Mode | Description |
 |------|-------------|
 | **Deathmatch** | Joueur contre joueur, parties de 1:30. Fusil, sniper et couteau. **5 maps** qui s'alternent à la fin de chaque partie. |
-| **Parkour** | **12 niveaux** (un biome chacun), **bhop**, classements par niveau. Tous les niveaux sont ouverts dès le début. |
+| **Parkour** | **15 niveaux** (un biome chacun), **bhop**, classements par niveau. Tous les niveaux sont ouverts dès le début. |
 
 ## Contrôles
 
@@ -144,7 +144,7 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Parkour on phones: ◀ ▶ arrow buttons replace the joystick (running forward, with an FWD button to toggle auto-run), big JUMP (hold = auto bhop), **AUTO** (locks jump held), **ASSIST** (swiping to turn in the air also strafes that way, which is what builds speed).
 - Bhop HUD (all devices, parkour): speed bar, bhop combo and strafe sync %.
 
-## Parkour: 12 levels
+## Parkour: 15 levels
 - The game is parkour only (Surf and Deathmatch are not selectable anymore). No checkpoints and shortcuts are allowed, but the server limits movement speed with a budget (21 u/s) and refuses times shorter than the straight line from start to finish at top speed (anti lag-cheat).
 - Levels 1 to 10 are unchanged. Level 11 is Final Sprint (6 platforms), level 12 is Blink (2 platforms, the shortest). The cave level was removed; its saved times are dropped and the old level 12 scores move to level 11 automatically.
 - `P` switches between first and third person view.
@@ -174,3 +174,9 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 
 ## Replay speed
 - The speed shown in a replay is now measured over about 0.4 s of recorded movement (position updates are 50 ms apart), instead of the frame-to-frame difference of the interpolated position, and never goes above the game's 17 u/s cap. It no longer jumps to 20 and back to 14.
+- Pages that do not send the respawn counter (an old cached page) are covered too: the server ignores their position updates for 450 ms after a respawn. For the full fix deploy `server.js` AND `public/index.html`.
+
+## Blue bhop corridors (levels 13 to 15)
+- Inspired by the classic Roblox bhop servers: a straight corridor between two tall walls, blue blocks with a light top, a light tile floor far below.
+- 13 Blue Lane: wide, blocks spread over the width. 14 Sideways Run: blocks alternate left and right, so you strafe diagonally. 15 Stair Climb: a narrower corridor, the blocks climb up (about 10 m).
+- They come from `bhopLane()` in `maps.js` (corridor width, number of blocks, sizes and gap length are in the `lane` settings of each `PK_INFO` entry).

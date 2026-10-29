@@ -162,7 +162,10 @@ const PK_INFO = [
   { th: 'neon', name: 'Neon City', col: 0x2b1b55 },
   { th: 'space', name: 'Outer Space', col: 0x3a3a5a },
   { th: 'neon', name: 'Final Sprint', col: 0x3b2470 },
-  { th: 'volcano', name: 'Blink', col: 0x4a2a22 }
+  { th: 'volcano', name: 'Blink', col: 0x4a2a22 },
+  { th: 'bhop', name: 'Blue Lane', col: 0x1456d6, wall: 0x0a3a9a, lane: { half: 14, N: 42, sz: [4, 6.5], f: 0.58, lat: 6, up: 0.3, down: 0.5 } },
+  { th: 'bhop', name: 'Sideways Run', col: 0x1a6ae8, wall: 0x0a3a9a, lane: { half: 11, N: 38, sz: [3.4, 4.6], f: 0.6, lat: 0, zig: 6.5, up: 0.25, down: 0.4 } },
+  { th: 'bhop', name: 'Stair Climb', col: 0x0f4ac0, wall: 0x082c78, lane: { half: 9, N: 36, sz: [3.6, 5], f: 0.55, lat: 2.5, up: 0.5, down: 0.1, climb: 1 } }
 ];
 const PK_LEVELS = PK_INFO.length;
 function airtime(dy) { const disc = 49 - 40 * dy; return disc < 0 ? 0 : (7 + Math.sqrt(disc)) / 20; }
@@ -171,7 +174,47 @@ function gapDist(a, b) {
   return Math.hypot(dx, dz);
 }
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
+// lane levels (the blue bhop style): a straight corridor between two tall walls, blocks of different sizes spread over its width
+function bhopLane(L, band) {
+  const c = band.lane, r = rng(L * 7919 + 13), V = 8.6, boxes = [], plats = [];
+  const mk = (x, z, w, d, top, kind) => { const b = B(kind || 'plat', x, z, w, d, 0.7, band.col, top - 0.7); b.top = top; return b; };
+  const start = mk(0, 0, 7, 7, 0, 'start'); plats.push(start); boxes.push(start);
+  let pathLen = 0, side = 1;
+  for (let i = 1; i <= c.N; i++) {
+    const prev = plats[plats.length - 1], last = i === c.N;
+    let placed = null;
+    for (let tries = 0; tries < 60 && !placed; tries++) {
+      const w = last ? 9 : c.sz[0] + r() * (c.sz[1] - c.sz[0]), d = last ? 9 : c.sz[0] + r() * (c.sz[1] - c.sz[0]);
+      let dy = c.climb && !last && i < c.N * 0.8 ? (r() < 0.8 ? c.up * (0.7 + 0.6 * r()) : 0) : r() < 0.45 ? r() * c.up : -r() * c.down * 2;
+      if (last) dy = Math.min(dy, 0);
+      const top = Math.max(-1.5, prev.top + dy), dyy = top - prev.top, allow = c.f * V * airtime(dyy);
+      if (allow <= 1) continue;
+      const g = Math.max(1.2, allow * (0.55 + 0.4 * r()) - 0.2), lim = c.half - w / 2 - 1.2;
+      let x = c.zig ? side * c.zig * (0.7 + 0.3 * r()) : prev.x + (r() * 2 - 1) * c.lat;
+      x = Math.max(-lim, Math.min(lim, x));
+      const z = prev.z - (prev.d / 2 + g + d / 2), cand = mk(x, z, w, d, top, last ? 'finish' : 'plat');
+      if (gapDist(prev, cand) > allow) continue;
+      placed = cand; if (c.zig) side = -side;
+    }
+    if (!placed) { const w = i === c.N ? 9 : 4.5; placed = mk(prev.x * 0.5, prev.z - (prev.d / 2 + 3 + w / 2), w, w, prev.top, i === c.N ? 'finish' : 'plat'); }
+    pathLen += Math.hypot(placed.x - prev.x, placed.z - prev.z);
+    plats.push(placed); boxes.push(placed);
+  }
+  let minY = 0, maxY = 0, minZ = 0;
+  for (const p of plats) { minY = Math.min(minY, p.top); maxY = Math.max(maxY, p.top); minZ = Math.min(minZ, p.z - p.d / 2); }
+  const fin = plats[plats.length - 1], T = 4, y0 = minY - 16, H = maxY - minY + 60, z1 = 16, z0 = fin.z - fin.d / 2 - 14, len = z1 - z0, zc = (z0 + z1) / 2;
+  const wall = (x, z, w, d) => boxes.push(B('block', x, z, w, d, H, band.wall, y0));
+  wall(-(c.half + T / 2), zc, T, len + 2 * T); wall(c.half + T / 2, zc, T, len + 2 * T);      // the two long walls
+  wall(0, z1 + T / 2, 2 * c.half + 2 * T, T); wall(0, z0 - T / 2, 2 * c.half + 2 * T, T);     // behind the start and past the finish
+  return {
+    id: 'pk' + L, name: 'Level ' + L + ' - ' + band.name, biome: band.th, th: band.th, half: 2000, boxes, spawns: [[0, 0]], pk: {
+      lv: L, n: PK_LEVELS, start: [0, 0, 0], cps: [], cpR: 4.2, fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
+      bounds: [-c.half - T, c.half + T, z0 - T, z1 + T, minY, maxY]
+    }
+  };
+}
 function parkour(L) {
+  if (PK_INFO[L - 1] && PK_INFO[L - 1].lane) return bhopLane(L, PK_INFO[L - 1]);
   const SL = L === 11 ? 12 : L === 12 ? 13 : L, r = rng(SL * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = Math.min((SL - 1) / 9, 1.1), band = PK_INFO[L - 1], big = band.th === 'cavern';     // t keeps the old value for levels 1-10, so their layouts did not change; the last level is long, hard and roomy
   const f = big ? 0.7 : 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [], cps = [];     // gentler than before: shorter gaps, bigger platforms
   const N = big ? 54 : L === 11 ? 6 : L === 12 ? 2 : 10 + Math.round(L * 2.2);
