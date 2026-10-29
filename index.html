@@ -546,6 +546,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function savePk() { try { localStorage.setItem('parena_pk_pb2', JSON.stringify(pkPB)); } catch (e) {} }
 
   // ---------- settings and wallet (saved in this browser) ----------
+  const SPEED_CAP = 25;      // parkour top speed (u/s); the server budget in server.js and the TAS port in tas.js use the same value
   const cfg = { sens: 1, fov: 90, name: '', color: COLORS[0], tone: 1, mode: 'dm', pkLevel: 1, skin: 0, ks: true, assist: true, fwd: true };
   try { Object.assign(cfg, JSON.parse(localStorage.getItem('parena_online3') || '{}')); } catch (e) {}
   cfg.mode = 'pk';      // parkour is the only mode
@@ -827,7 +828,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
       mesh.position.set(x, y0 + h / 2, z); mesh.castShadow = kind !== 'edge'; mesh.receiveShadow = true; world.add(mesh); solids.push(mesh);
       if ((kind === 'cp' || kind === 'finish' || kind === 'start') && pk) {
         const c = kind === 'cp' ? 0x4d7bff : kind === 'finish' ? 0xffd24d : 0x4dff9a;
-        const beam = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, d) / 2 - 0.2, Math.min(w, d) / 2 - 0.2, 14, 16, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
+        const bgeo = kind === 'start' ? new THREE.BoxGeometry(w - 0.1, 14, d - 0.1) : new THREE.CylinderGeometry(Math.min(w, d) / 2 - 0.2, Math.min(w, d) / 2 - 0.2, 14, 16, 1, true);      // the start zone fills the whole square
+        const beam = new THREE.Mesh(bgeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
         beam.position.set(x, y0 + h + 7, z); world.add(beam); glowPulse.push(beam);
       }
       if (pk && (kind === 'plat' || kind === 'start' || kind === 'finish')) {
@@ -1645,10 +1647,11 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const box = $('rpbox'), lv = rpLevel(); box.hidden = !lv; if (!lv) return;
     rpFetch(lv);
     const dm = lv < 0, cur = dm ? rpDm : rpPer, tabs = dm ? [['k', 'Total kills'], ['s', 'Killstreak']] : [['d', 'Day'], ['m', 'Month'], ['a', 'All-time']];
+    if (!dm && lbCache[lv] && lbCache[lv].t && lbCache[lv].t.length) tabs.push(['t', 'TAS']); else if (!dm && rpPer === 't') rpPer = 'a';
     $('rpstop').hidden = !replay; $('rptitle').textContent = dm ? 'Records \u00b7 Deathmatch' : 'Records \u00b7 Level ' + lv;
     $('rptabs').innerHTML = tabs.map((t) => `<button type="button" data-p="${t[0]}"${t[0] === cur ? ' class="on"' : ''}>${t[1]}</button>`).join('');
     const list = $('rplist'); list.innerHTML = '';
-    const src = dm ? dmCache : lbCache[lv], b = src || {}, rows = (dm ? b[rpDm] : (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : b.a)) || [];
+    const src = dm ? dmCache : lbCache[lv], b = src || {}, rows = (dm ? b[rpDm] : (rpPer === 'd' ? b.d : rpPer === 'm' ? b.m : rpPer === 't' ? b.t : b.a)) || [];
     if (!rows.length) { list.innerHTML = '<div class="rpe">' + (src ? (dm ? 'No kills recorded yet.' : 'No times yet on this board.') : 'Loading...') + '</div>'; return; }
     rows.forEach((r, i) => {
       const d = document.createElement('div'); d.className = 'rpr' + (dm ? ' dmr' : '') + (cfg.name && r[0].toLowerCase() === cfg.name.toLowerCase() ? ' me' : '');
@@ -1694,7 +1697,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       if (real <= 0) continue;
       const dtm = Math.abs(real - nom) < 0.3 * nom ? nom : real;      // position updates are sent every 50 ms: trust that unless the timestamps say the connection stalled
       let vx = (f[i1 * 6 + 1] - f[i0 * 6 + 1]) / 20 / dtm, vz = (f[i1 * 6 + 3] - f[i0 * 6 + 3]) / 20 / dtm;
-      const s = Math.hypot(vx, vz); if (s > 17) { vx *= 17 / s; vz *= 17 / s; }      // the game caps horizontal speed at 17
+      const s = Math.hypot(vx, vz); if (s > SPEED_CAP) { vx *= SPEED_CAP / s; vz *= SPEED_CAP / s; }      // the game caps horizontal speed
       r.vx[i] = vx; r.vz[i] = vz;
     }
   }
@@ -1820,7 +1823,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
           if (add > 0) { const gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; P.gn = (P.gn || 0) + 1; }
         }
       }
-      const sp2 = Math.hypot(P.vx, P.vz); if (sp2 > 17) { P.vx *= 17 / sp2; P.vz *= 17 / sp2; }
+      const sp2 = Math.hypot(P.vx, P.vz); if (sp2 > SPEED_CAP) { P.vx *= SPEED_CAP / sp2; P.vz *= SPEED_CAP / sp2; }
     }
     if (onGround) { P.stepT -= dt * Math.hypot(P.vx, P.vz); if (P.stepT <= 0 && Math.hypot(P.vx, P.vz) > 2) { P.stepT = 2.4; beep(70 + Math.random() * 20, 0.05, 'triangle', 0.025); } }
     P.vy -= 20 * dt;
@@ -2286,7 +2289,7 @@ function tutStep(S, P, gAt, dt, route, plats) {
     }
     on('tkW', kk.W); on('tkA', kk.A); on('tkS', kk.S); on('tkD', kk.D); on('tkSp', kk.Space);
     const sp = Math.hypot(P.vx, P.vz);
-    $('tutsv').textContent = sp.toFixed(1); $('tutsb').style.width = Math.min(100, sp / 17 * 100) + '%';
+    $('tutsv').textContent = sp.toFixed(1); $('tutsb').style.width = Math.min(100, sp / SPEED_CAP * 100) + '%';
   }
   $('tutbtn').addEventListener('click', startTutorial);
   $('tutprac').addEventListener('click', () => { tutReset('free'); lock(); });

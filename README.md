@@ -193,3 +193,13 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - `/admin` > "Comptes": list, delete, change a password, or "Creer / remplacer le compte" to give an existing leaderboard name to its real owner (do it quickly after the deploy, since leaderboard names are not reserved: the first person who registers a name gets it).
 - The old nickname lock (`names.json`) is no longer used.
 - Account limit details: registration is refused if the IP, the device id or the hardware fingerprint already has an account. It stops casual multi-accounting, but it is not unbreakable (VPN + private window + spoofed browser can get around it), and two identical computers/phones on one fingerprint can collide - create their account from /admin ("Creer / remplacer le compte"), which is not limited.
+
+## TAS bot (level 1)
+- `tas.json` holds a tool-assisted run of **level 1** (4.92 s since the speed cap went to 25 u/s). It is shown as a "TAS" tab in the Records box (level 1 only) with a replay you can watch like any other (keys, speed, slow motion...). It is not part of the day / month / all-time boards and never affects ranks.
+- It is made by `node make-tas.js 1 100` (level, beam width) or, for the best settings, `YF=1 MU=1 SSTEP=10 STOP=12 WARM=480 OUT=run.json node tas-hop.js 1 100` then `FROM=run.json node make-tas.js 1`. `tas.js` is a port of the game's parkour physics (checked frame by frame against the real `move()` in the page: max difference 5 mm over a whole run); `tas-hop.js` searches the fastest run: a free warm-up on the 7x7 start platform (the clock only starts when you leave it, so the bot bunny-hops in circles up to ~14 u/s first), then a beam search over hops, aim points and strafe styles.
+- Reference: the route is ~82 units long after leaving the start platform, so 25 u/s from the very first frame would give 3.3 s; the rest is the time needed to speed up (air strafing gains less and less as you go faster). Longer searches converged to the same time at the old 17 u/s cap, so it should be close to the limit.
+- To add other levels: `node make-tas.js 2 100` (not generated yet; they may need tuning). Commit the new `tas.json`; the server reads it at start.
+
+## Speed cap 25 u/s and square start zone
+- Parkour top speed is now 25 u/s (`SPEED_CAP` in public/index.html, same value in `tas.js` for the TAS bot). The server's movement budget refills at 30 u/s and the impossible-time check uses 30 u/s. Records set before this change were made with the old 17 u/s cap and are easier to beat.
+- The green start zone is now a box that fills the whole 7x7 start square (it used to be a round beam).
