@@ -25,6 +25,7 @@ const server = http.createServer((req, res) => {
     res.end(page); return;
   }
   if (req.url === '/admin' || req.url.startsWith('/admin/')) { adminHandler(req, res); return; }
+  if (req.method === 'POST' && req.url === '/api/auth') { authApi(req, res, String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').split(',')[0].trim()); return; }
   if (req.url.startsWith('/api/')) {
     // read-only data for the menu: boards, replays and map of a parkour level (no connection needed)
     const u = new URL(req.url, 'http://x'), lv = Math.max(1, Math.min(PK_LEVELS, Math.floor(+u.searchParams.get('lv')) || 1));
@@ -53,6 +54,10 @@ const ADMIN_HTML = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><
 <div class="row"><label>Niveau <select id="lv"></select></label><label>Classement <select id="list"><option value="all">Tout-temps</option><option value="day">Jour</option><option value="month">Mois</option></select></label><button id="reload">Actualiser</button></div>
 <table><thead><tr><th>#</th><th>Joueur</th><th>Temps (s)</th><th>Replay</th><th></th></tr></thead><tbody id="rows"></tbody></table>
 <div class="row"><button class="d" id="clear">Vider tout le niveau (3 classements)</button></div>
+<h1>Comptes</h1>
+<div class="row"><input id="rname" placeholder="Pseudo" maxlength="14"><input id="rpass" placeholder="Mot de passe" type="text"><button id="reserve">Creer / remplacer le compte</button><button id="nreload">Actualiser</button></div>
+<table><thead><tr><th>Pseudo</th><th>IP</th><th></th></tr></thead><tbody id="nrows"></tbody></table>
+<small>"Creer / remplacer" cree le compte (ou change son mot de passe et deconnecte ses sessions). Utile pour redonner un pseudo a son vrai proprietaire.</small>
 <small>Modifier ou supprimer s'applique tout de suite, sans redemarrer le serveur. "Les 3" = tout-temps, jour et mois.</small>
 </div><div id="msg"></div>
 <script>
@@ -65,10 +70,13 @@ const ok=document.createElement('button');ok.textContent='Modifier';ok.onclick=a
 const de=document.createElement('button');de.className='d';de.textContent='Supprimer';de.onclick=async()=>{if(!confirm('Supprimer '+r.n+' ?'))return;await api({op:'del',lv:+$('lv').value,list:$('list').value,name:r.n});$('msg').textContent='Temps supprime';load()};
 tr.children[4].append(ok,' ',de);tb.appendChild(tr)});if(!j.rows.length)tb.innerHTML='<tr><td colspan=5>Aucun temps</td></tr>'}
 for(let i=1;i<=${PK_LEVELS};i++){const o=document.createElement('option');o.value=i;o.textContent='Niveau '+i;$('lv').appendChild(o)}
-$('go').onclick=async()=>{pw=$('pw').value;try{await api({op:'list',lv:1,list:'all'});sessionStorage.setItem('apw',pw);$('msg').textContent='';show();load()}catch(e){}};
+$('go').onclick=async()=>{pw=$('pw').value;try{await api({op:'list',lv:1,list:'all'});sessionStorage.setItem('apw',pw);$('msg').textContent='';show();load();nload()}catch(e){}};
+async function nload(){const j=await api({op:'accts'});const tb=$('nrows');tb.innerHTML='';j.rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML='<td></td><td></td><td></td>';tr.children[0].textContent=r.n;tr.children[1].textContent=r.ip;const pw=document.createElement('input');pw.placeholder='nouveau mdp';pw.size=10;const bp=document.createElement('button');bp.textContent='Changer mdp';bp.onclick=async()=>{await api({op:'acct_pw',name:r.n,pass:pw.value});$('msg').textContent='Mot de passe change';pw.value=''};const b=document.createElement('button');b.className='d';b.textContent='Supprimer';b.onclick=async()=>{if(!confirm('Supprimer le compte '+r.n+' ?'))return;await api({op:'acct_del',name:r.n});$('msg').textContent='Compte supprime';nload()};tr.children[2].append(pw,' ',bp,' ',b);tb.appendChild(tr)})}
+$('nreload').onclick=nload;
+$('reserve').onclick=async()=>{await api({op:'acct_add',name:$('rname').value,pass:$('rpass').value});$('msg').textContent='Compte enregistre';$('rpass').value='';nload()};
 $('lv').onchange=$('list').onchange=$('reload').onclick=()=>{$('msg').textContent='';load()};
 $('clear').onclick=async()=>{if(!confirm('Vider TOUS les temps du niveau '+$('lv').value+' ?'))return;await api({op:'clear',lv:+$('lv').value});$('msg').textContent='Niveau vide';load()};
-if(pw)api({op:'list',lv:1,list:'all'}).then(()=>{show();load()}).catch(()=>{sessionStorage.removeItem('apw')});
+if(pw)api({op:'list',lv:1,list:'all'}).then(()=>{show();load();nload()}).catch(()=>{sessionStorage.removeItem('apw')});
 </script></body></html>`;
 function adminHandler(req, res) {
   const pwEnv = process.env.ADMIN_PASSWORD;
@@ -86,6 +94,19 @@ function adminHandler(req, res) {
     let m; try { m = JSON.parse(body); } catch (e) { json(400, { err: 'Requete invalide' }); return; }
     const a = crypto.createHash('sha256').update(String(m.pw || '')).digest(), b = crypto.createHash('sha256').update(pwEnv).digest();
     if (!crypto.timingSafeEqual(a, b)) { f.n++; adminFails.set(ip, f); json(401, { err: 'Mot de passe incorrect' }); return; }
+    if (m.op === 'accts') { json(200, { rows: Object.values(acc.users).map((u) => ({ n: u.n, ip: u.ip || '', c: u.c || 0 })).sort((p, q) => p.n.localeCompare(q.n)) }); return; }
+    if (m.op === 'acct_del') { const low = String(m.name || '').toLowerCase(); delete acc.users[low]; for (const k of Object.keys(acc.tok)) if (acc.tok[k] === low) delete acc.tok[k]; saveAcc(); json(200, { ok: 1 }); return; }
+    if (m.op === 'acct_pw') {
+      const u = acc.users[String(m.name || '').toLowerCase()], pw = String(m.pass || '');
+      if (!u) { json(404, { err: 'Compte introuvable' }); return; } if (pw.length < 6 || pw.length > 64) { json(400, { err: 'Mot de passe: 6 a 64 caracteres' }); return; }
+      u.s = crypto.randomBytes(16).toString('hex'); u.h = hashPw(pw, u.s); saveAcc(); json(200, { ok: 1 }); return;
+    }
+    if (m.op === 'acct_add') {      // create (or take over) an account for a username, e.g. to give an existing leaderboard name to its owner
+      const nm = String(m.name || '').trim(), pw = String(m.pass || '');
+      if (!/^[A-Za-z0-9_-]{3,14}$/.test(nm) || pw.length < 6 || pw.length > 64) { json(400, { err: 'Pseudo (3-14, lettres/chiffres/_-) ou mot de passe (6+) invalide' }); return; }
+      const low = nm.toLowerCase(); for (const k of Object.keys(acc.tok)) if (acc.tok[k] === low) delete acc.tok[k];
+      const salt = crypto.randomBytes(16).toString('hex'); acc.users[low] = { n: nm, s: salt, h: hashPw(pw, salt), ip: 'admin', c: Date.now() }; saveAcc(); json(200, { ok: 1 }); return;
+    }
     const lv = Math.floor(+m.lv);
     if (!(lv >= 1 && lv <= PK_LEVELS)) { json(400, { err: 'Niveau invalide' }); return; }
     const sc = levelScores(lv), lists = { all: sc.all, day: sc.day.rows, month: sc.month.rows };
@@ -504,26 +525,54 @@ function enterRoom(me, room) {
   respawn(room, me);
   if (room.mode === 'pk') sendBoard(room.level, me);
 }
-// ---- locked nicknames: a device picks one nickname and keeps it (stops people from making several accounts to flood the boards) ----
-const NAME_FILE = path.join(process.env.DATA_DIR || __dirname, 'names.json');
-let nameDB = {};      // device token -> { n: nickname, ip: ip }
-try { nameDB = JSON.parse(fs.readFileSync(NAME_FILE, 'utf8')); } catch (e) { nameDB = {}; }
-let nameSaveT = null;
-function saveNames() { if (nameSaveT) return; nameSaveT = setTimeout(() => { nameSaveT = null; fs.writeFile(NAME_FILE, JSON.stringify(nameDB), () => {}); }, 1000); }
-const MAX_NAMES_PER_IP = 2;
-// returns { name } (the nickname to use) or { err }
-function claimName(cid, wanted, ip) {
-  if (!/^[a-z0-9]{16,64}$/.test(cid || '')) return { err: 'Reload the page (Ctrl+F5) then try again.' };
-  const mine = nameDB[cid];
-  if (mine) return { name: mine.n };      // already locked: the nickname cannot be changed
-  const low = wanted.toLowerCase();
-  if (!wanted || low === 'player') return { err: 'Pick a nickname first. You will not be able to change it afterwards.' };
-  for (const k in nameDB) if (nameDB[k].n.toLowerCase() === low) return { err: 'This nickname is already taken.' };
-  let sameIp = 0; for (const k in nameDB) if (nameDB[k].ip === ip) sameIp++;
-  if (sameIp >= MAX_NAMES_PER_IP) return { err: 'Too many nicknames from this connection.' };
-  nameDB[cid] = { n: wanted, ip }; saveNames();
-  return { name: wanted };
+// ---- accounts: register / log in with a username and a password; the username is the in-game name and nobody else can take it ----
+const ACC_FILE = path.join(process.env.DATA_DIR || __dirname, 'accounts.json');
+let acc = { users: {}, tok: {} };      // users: lower-case name -> { n, s, h, ip, c }; tok: sha256(session token) -> lower-case name
+try { const j = JSON.parse(fs.readFileSync(ACC_FILE, 'utf8')); if (j && j.users) acc = { users: j.users, tok: j.tok || {} }; } catch (e) {}
+let accSaveT = null;
+function saveAcc() { if (accSaveT) return; accSaveT = setTimeout(() => { accSaveT = null; fs.writeFile(ACC_FILE, JSON.stringify(acc), () => {}); }, 500); }
+const sha = (x) => crypto.createHash('sha256').update(x).digest('hex');
+const hashPw = (pw, salt) => crypto.scryptSync(pw, salt, 32).toString('hex');
+const MAX_ACCOUNTS_PER_IP = 2;
+const authFails = new Map();
+function userOfToken(tok) { if (typeof tok !== 'string' || tok.length < 20 || tok.length > 80) return null; const k = acc.tok[sha(tok)]; return k && acc.users[k] ? acc.users[k] : null; }
+function newToken(lower) {
+  const tok = crypto.randomBytes(24).toString('hex'), mine = Object.keys(acc.tok).filter((k) => acc.tok[k] === lower);
+  while (mine.length >= 5) delete acc.tok[mine.shift()];      // at most 5 sessions per account, the oldest is dropped
+  acc.tok[sha(tok)] = lower; saveAcc(); return tok;
 }
+function authApi(req, res, ip) {
+  const json = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
+  let body = '';
+  req.on('data', (d) => { body += d; if (body.length > 1024) req.destroy(); });
+  req.on('end', () => {
+    let m; try { m = JSON.parse(body); } catch (e) { json(400, { err: 'Bad request' }); return; }
+    const now = Date.now(), f = authFails.get(ip) || { n: 0, t: now };
+    if (now - f.t > 600000) { f.n = 0; f.t = now; }
+    if (m.op === 'logout') { if (typeof m.tok === 'string') { delete acc.tok[sha(m.tok)]; saveAcc(); } json(200, { ok: 1 }); return; }
+    if (m.op === 'me') { const u = userOfToken(m.tok); json(u ? 200 : 401, u ? { name: u.n } : { err: 'Not logged in' }); return; }
+    if (f.n >= 10) { json(429, { err: 'Too many attempts, try again in 10 minutes.' }); return; }
+    const user = String(m.user || '').trim(), pass = String(m.pass || '');
+    if (m.op === 'register') {
+      if (!/^[A-Za-z0-9_-]{3,14}$/.test(user)) { json(400, { err: 'Username: 3 to 14 letters, digits, _ or -.' }); return; }
+      if (pass.length < 6 || pass.length > 64) { json(400, { err: 'Password: 6 to 64 characters.' }); return; }
+      const low = user.toLowerCase();
+      if (acc.users[low]) { f.n++; authFails.set(ip, f); json(409, { err: 'This username is already taken.' }); return; }
+      if (Object.values(acc.users).filter((u) => u.ip === ip).length >= MAX_ACCOUNTS_PER_IP) { json(429, { err: 'Too many accounts created from this connection.' }); return; }
+      const salt = crypto.randomBytes(16).toString('hex');
+      acc.users[low] = { n: user, s: salt, h: hashPw(pass, salt), ip, c: now };
+      json(200, { name: user, tok: newToken(low) }); return;
+    }
+    if (m.op === 'login') {
+      const u = acc.users[user.toLowerCase()];
+      const ok = u && crypto.timingSafeEqual(Buffer.from(hashPw(pass, u.s), 'hex'), Buffer.from(u.h, 'hex'));
+      if (!ok) { f.n++; authFails.set(ip, f); json(401, { err: 'Wrong username or password.' }); return; }
+      json(200, { name: u.n, tok: newToken(user.toLowerCase()) }); return;
+    }
+    json(400, { err: 'Unknown action' });
+  });
+}
+const ipConn = new Map();      // ip -> the player connected from it
 wss.on('connection', (ws, req) => {
   let me = null;
   const ipRaw = String((req && req.headers && req.headers['x-forwarded-for']) || (req && req.socket && req.socket.remoteAddress) || '?').split(',')[0].trim();
@@ -535,15 +584,19 @@ wss.on('connection', (ws, req) => {
       const r = pkRoom(clamp(Math.floor(+m.level) || 1, 1, PK_LEVELS));     // parkour is the only mode now
       if (!r) return;
       if (r.players.size >= MAX_PER_ROOM) { ws.send(JSON.stringify({ t: 'full' })); return; }
-      const wanted = String(m.name || '').replace(/[<>&"'`]/g, '').trim().slice(0, 14);
-      const cl = claimName(String(m.cid || ''), wanted, ipRaw);
-      if (cl.err) { ws.send(JSON.stringify({ t: 'nameerr', e: cl.err })); return; }
-      const name = cl.name;
+      const old = ipConn.get(ipRaw);
+      if (old && old.ws !== ws) {
+        if (old.ws.readyState === 1 && Date.now() - old.lastSt < 5000) { ws.send(JSON.stringify({ t: 'nameerr', e: 'Another player is already connected from your connection. Close the other tab first.' })); return; }
+        try { old.ws.close(); } catch (e) {} if (old.room) old.room.players.delete(old.id);
+      }
+      const au = userOfToken(m.tok);
+      if (!au) { ws.send(JSON.stringify({ t: 'nameerr', e: 'Log in or register first.', auth: 1 })); return; }
+      const name = au.n;
       ws.send(JSON.stringify({ t: 'name', n: name }));
       me = { id: nextId++, ws, name, color: validColor(m.color) || PALETTE[Math.floor(Math.random() * PALETTE.length)], tone: clamp(Math.floor(+m.tone) || 0, 0, 4), skin: clamp(Math.floor(+m.skin) || 0, 0, 10),
         weapon: WEAPONS[m.weapon] ? m.weapon : 'rifle', room: null, x: 0, y: 0, z: 0, yaw: 0, pitch: 0, hp: 100, dead: false, deadT: 0, inv: 0, hurtT: 99,
         kills: 0, deaths: 0, heads: 0, streak: 0, best: 0, coinsRun: 0, lastShot: 0, lastSniper: 0, lastStab: 0, lastThrow: 0, swapT: 0, cur: 'rifle', lastChat: 0, lastSt: Date.now(), cp: 0, pkStart: 0, finished: false, falls: 0 };
-      enterRoom(me, r);
+      enterRoom(me, r); ipConn.set(ipRaw, me);
       send(me, { t: 'chatlog', l: chatLog });
       if (r.mode === 'dm') { const st = dmStat(me.name); send(me, { t: 'dmstat', k: st.k, s: st.s }); }
     } else if (m.t === 'st' && me && !me.dead) {
@@ -619,7 +672,7 @@ wss.on('connection', (ws, req) => {
       if (m.skin != null) me.skin = clamp(Math.floor(+m.skin) || 0, 0, 10);
     }
   });
-  ws.on('close', () => { if (me && me.room) me.room.players.delete(me.id); });
+  ws.on('close', () => { if (me && me.room) me.room.players.delete(me.id); if (me && ipConn.get(ipRaw) === me) ipConn.delete(ipRaw); });
   ws.on('error', () => {});
 });
 

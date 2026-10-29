@@ -430,7 +430,13 @@ body.touch #tutcap span { font-size: 0.78rem; }
     <button id="tutbtn" class="ghost" type="button" hidden>&#9654; Learn to bunny hop (tutorial)</button>
     <p id="msg"></p>
     <div id="setup">
-      <input type="text" id="name" maxlength="14" placeholder="Your name (cannot be changed later)" autocomplete="off" aria-label="Your name">
+      <div id="authin">
+        <input type="text" id="name" maxlength="14" placeholder="Username" autocomplete="username" aria-label="Username">
+        <input type="password" id="pass" maxlength="64" placeholder="Password" autocomplete="current-password" aria-label="Password" style="margin-top:8px">
+        <div style="display:flex;gap:8px;margin-top:8px"><button id="loginbtn" type="button" style="flex:1">Log in</button><button id="regbtn" type="button" class="ghost" style="flex:1;margin-bottom:0">Register</button></div>
+        <small style="opacity:.7;display:block;margin-top:6px">Your username is your name in the game and on the leaderboards. Nobody else can use it.</small>
+      </div>
+      <div id="authout" hidden style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px"><span>Signed in as <b id="who"></b></span><button id="logoutbtn" type="button" class="ghost" style="margin:0;padding:6px 12px">Log out</button></div>
       <details open><summary>Look</summary>
         <div class="swl">Shirt color</div><div class="swatches" id="swatches" role="group" aria-label="Shirt color"></div>
         <div class="swl">Skin tone</div><div class="swatches tones" id="tones" role="group" aria-label="Skin tone"></div>
@@ -553,7 +559,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   const myWeapon = () => (cfg.mode === 'dm' ? 'rifle' : wallet.equipped);
 
   $('sens').value = cfg.sens; $('sensv').textContent = (+cfg.sens).toFixed(2);
-  $('fov').value = cfg.fov; $('fovv').textContent = cfg.fov; $('name').value = cfg.name || ''; if (cfg.locked) { $('name').readOnly = true; $('name').title = 'Your nickname is locked'; }
+  $('fov').value = cfg.fov; $('fovv').textContent = cfg.fov; $('name').value = cfg.name || '';
   $('sens').addEventListener('input', () => { cfg.sens = +$('sens').value; $('sensv').textContent = cfg.sens.toFixed(2); saveCfg(); });
   $('ksopt').checked = cfg.ks !== false;
   $('ksopt').addEventListener('change', () => { cfg.ks = $('ksopt').checked; saveCfg(); });
@@ -1412,17 +1418,43 @@ body.touch #tutcap span { font-size: 0.78rem; }
   function setMsg(t) { $('msg').textContent = t; }
   const esc = (s) => String(s).replace(/[<>&]/g, '');
 
-  function getCid() {
-    let c = ''; try { c = localStorage.getItem('parena_cid') || ''; } catch (e) {}
-    if (!/^[a-z0-9]{16,64}$/.test(c)) { c = ''; for (let i = 0; i < 32; i++) c += Math.floor(Math.random() * 36).toString(36); try { localStorage.setItem('parena_cid', c); } catch (e) {} }
-    return c;
+  // ---- account: log in / register (the server keeps the accounts; the session token lives in this browser) ----
+  let authTok = ''; try { authTok = localStorage.getItem('parena_tok') || ''; } catch (e) {}
+  function showAuth(loggedName) {
+    $('authin').hidden = !!loggedName; $('authout').hidden = !loggedName;
+    $('authout').style.display = loggedName ? 'flex' : 'none';
+    if (loggedName) { $('who').textContent = loggedName; cfg.name = loggedName; saveCfg(); try { refreshBoards(); } catch (e) {} }
   }
-  function lockNameUI(n) { cfg.name = n; cfg.locked = 1; saveCfg(); $('name').value = n; $('name').readOnly = true; $('name').title = 'Your nickname is locked'; }
+  function setTok(t) { authTok = t || ''; try { if (t) localStorage.setItem('parena_tok', t); else localStorage.removeItem('parena_tok'); } catch (e) {} }
+  async function authCall(op) {
+    const user = $('name').value.trim(), pass = $('pass').value;
+    if (!user || !pass) { setMsg('Enter a username and a password.'); return; }
+    setMsg('...');
+    try {
+      const r = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, user, pass }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setMsg(j.err || 'Error ' + r.status); return; }
+      setTok(j.tok); $('pass').value = ''; showAuth(j.name); setMsg(op === 'register' ? 'Account created. You are signed in.' : '');
+    } catch (e) { setMsg('Could not reach the server.'); }
+  }
+  $('loginbtn').addEventListener('click', () => authCall('login'));
+  $('regbtn').addEventListener('click', () => authCall('register'));
+  $('pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') authCall('login'); });
+  $('logoutbtn').addEventListener('click', () => {
+    const t = authTok; setTok(''); cfg.name = ''; saveCfg(); showAuth(''); $('name').value = '';
+    try { fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'logout', tok: t }) }); } catch (e) {}
+    if (ws) { try { ws.close(); } catch (e) {} }
+  });
+  if (authTok && /^https?:$/.test(location.protocol)) {
+    fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'me', tok: authTok }) })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j }))).then(({ ok, j }) => { if (ok) showAuth(j.name); else { setTok(''); showAuth(''); } }).catch(() => {});
+  }
   function connect() {
     if (!/^https?:$/.test(location.protocol)) { setMsg('Open the game through the server address (not as a file) to play online.'); $('play').disabled = false; return; }
+    if (!authTok) { setMsg('Log in or register first.'); $('play').disabled = false; return; }
     setMsg('Connecting...'); $('play').disabled = true;
-    const name = ($('name').value.trim() || (cfg.locked ? cfg.name : '') || '').slice(0, 14); if (!cfg.locked) { cfg.name = name; saveCfg(); }
-    const join = () => wsSend({ t: 'join', cid: getCid(), mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
+    const name = cfg.name;
+    const join = () => wsSend({ t: 'join', tok: authTok, mode: cfg.mode, level: cfg.pkLevel, name, color: cfg.color, tone: cfg.tone, skin: cfg.skin, weapon: myWeapon() });
     if (ws && ws.readyState === 1) { join(); return; }
     let sock; try { sock = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host); } catch (e) { setMsg('Could not reach the server.'); $('play').disabled = false; return; }
     ws = sock; let opened = false;
@@ -1478,9 +1510,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
       if (mapInfo.pk && mapInfo.pk.lv === m.lv) { refreshBoards(); pkHud(); }
       if (!$('rpbox').hidden) rpRender();
     } else if (m.t === 'name') {
-      lockNameUI(m.n);
+      showAuth(m.n);
     } else if (m.t === 'nameerr') {
-      $('play').disabled = false; setMsg(m.e);
+      $('play').disabled = false; setMsg(m.e); if (m.auth) { setTok(''); showAuth(''); }
     } else if (m.t === 'full') {
       $('play').disabled = false; setMsg('This room is full. Try again in a moment.');
     } else if (m.t === 's') {
@@ -1962,7 +1994,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     else connect();
   });
   $('leave').addEventListener('click', () => { if (ws) ws.close(); else { state = 'menu'; showCard('menu'); } });
-  $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(); });
+  $('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { if (authTok) connect(); else $('pass').focus(); } });
 
   function toggleFullscreen() {
     try {

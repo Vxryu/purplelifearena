@@ -181,3 +181,14 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - A nickname can only belong to one token (case-insensitive), and one connection (IP) can lock at most 2 nicknames (`MAX_NAMES_PER_IP` in server.js).
 - To free or change a nickname, edit `names.json` on the server (delete the entry) - players then pick a new one.
 - Limits: someone who clears browser data AND changes IP can still get a new nickname.
+- Admin page (`/admin`) now has a "Pseudos verrouilles" list with a "Liberer" button to release a nickname (e.g. when someone grabbed another player's name before they joined).
+- Nicknames are also tied to IPs (each nickname remembers up to 6 IPs): a new browser / cleared data on a known IP gets that IP's nickname back instead of creating a new one. Side effect: people sharing one IP (same home, school, mobile carrier) share one nickname - use "Liberer" in /admin if it happens.
+- One connection per IP at a time: a second tab/browser from the same IP is refused ("Another player is already connected...") while the first is active; a stale connection (no update for 5 s) is dropped automatically.
+- /admin "Reserver pour mon IP actuelle": gives a nickname to the IP the admin page is opened from (and only to it; other IPs get "already taken" / "reserved").
+
+## Accounts (register / log in)
+- The menu now has Username + Password with **Log in** and **Register**. The username is the in-game name and the name on the leaderboards; nobody else can use it (case-insensitive). 3-14 characters: letters, digits, `_`, `-`. Password 6-64 characters, stored hashed (scrypt) with a salt in `accounts.json` (in `DATA_DIR`, next to `scores-v2.json`). Make sure that folder is on the persistent disk, otherwise accounts disappear on redeploy.
+- A session token is kept in the browser (`parena_tok`), so players stay logged in; "Log out" ends it. Joining the game server requires a valid token.
+- Limits: 2 accounts created per IP, 10 failed attempts per 10 min per IP, one connection per IP at a time, max 5 sessions per account.
+- `/admin` > "Comptes": list, delete, change a password, or "Creer / remplacer le compte" to give an existing leaderboard name to its real owner (do it quickly after the deploy, since leaderboard names are not reserved: the first person who registers a name gets it).
+- The old nickname lock (`names.json`) is no longer used.
