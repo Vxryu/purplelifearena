@@ -448,6 +448,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       <details><summary>Settings</summary>
         <div class="set"><b>Sensitivity</b><input type="range" id="sens" min="0.2" max="3" step="0.05" value="1"><output id="sensv">1.00</output></div>
         <div class="set"><b>Keystrokes (parkour)</b><input type="checkbox" id="ksopt" checked></div>
+        <div class="set"><b>Keystrokes in replays</b><input type="checkbox" id="rksopt" checked></div>
         <div class="set"><b>Field of view</b><input type="range" id="fov" min="60" max="110" step="1" value="90"><output id="fovv">90</output></div>
       </details>
       <details><summary>Controls</summary>
@@ -556,6 +557,8 @@ body.touch #tutcap span { font-size: 0.78rem; }
   $('sens').addEventListener('input', () => { cfg.sens = +$('sens').value; $('sensv').textContent = cfg.sens.toFixed(2); saveCfg(); });
   $('ksopt').checked = cfg.ks !== false;
   $('ksopt').addEventListener('change', () => { cfg.ks = $('ksopt').checked; saveCfg(); });
+  $('rksopt').checked = cfg.rks !== false;
+  $('rksopt').addEventListener('change', () => { cfg.rks = $('rksopt').checked; saveCfg(); if (replay) $('ks').hidden = !$('rksopt').checked; });
   $('fov').addEventListener('input', () => { cfg.fov = +$('fov').value; $('fovv').textContent = cfg.fov; saveCfg(); });
 
   function buildSwatches() {
@@ -1282,7 +1285,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
 
   // ---------- audio ----------
   let ac = null;
+  let tutSilent = false;
   function beep(f, d, type, v, slide) {
+    if (tutSilent) return;
     try {
       ac = ac || new (window.AudioContext || window.webkitAudioContext)();
       const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
@@ -1433,7 +1438,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       $('magmax').textContent = '/ ' + WEAPONS[P.weapon].mag; updateAmmo(); $('lbk').textContent = runMode === 'dm' ? 'K / D' : runMode === 'pk' ? 'Falls' : 'K / $';
       $('play').disabled = false; startPlaying();
       clearInterval(sendTimer);
-      sendTimer = setInterval(() => { if (state === 'play' && !P.dead && !replay) wsSend({ t: 'st', x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, sl: P.slideT > 0 ? 1 : 0 }); }, 50);
+      sendTimer = setInterval(() => { if (state === 'play' && !P.dead && !replay) wsSend({ t: 'st', x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, sl: P.slideT > 0 ? 1 : 0, rs: P.rs | 0, k: (keys.KeyW || keys.ArrowUp ? 1 : 0) | (keys.KeyA || keys.ArrowLeft ? 2 : 0) | (keys.KeyS || keys.ArrowDown ? 4 : 0) | (keys.KeyD || keys.ArrowRight ? 8 : 0) | (keys.Space ? 16 : 0) }); }, 50);
     } else if (m.t === 'map') {
       endReplay();
       buildWorld(m); pkCp = 0; pkCpN = m.pk ? m.pk.cps.length : 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud();
@@ -1523,7 +1528,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
       P.dead = true; streak = 0; streakHud(); mouseDown = false; P.hp = 0; updateHp();
       banner('Eliminated by ' + m.by + (runMode === 'endless' ? '. Watching your squad.' : runMode === 'camp' ? '. Respawning soon.' : ''), 2400); beep(90, 0.5, 'sawtooth', 0.09, 0.4);
     } else if (m.t === 'respawn') {
-      P.x = m.x; P.z = m.z; P.y = m.y || 0; P.vx = P.vz = P.vy = 0; P.slideT = 0; P.slideCd = 0; P.gr = false; P.hp = m.hp; P.dead = false; magOf.rifle = 30; magOf.sniper = 5; throwCd = 0; P.mag = P.weapon === 'knife' ? 0 : WEAPONS[P.weapon].mag; P.reloadT = 0; P.fellT = 0.4;
+      P.rs = m.rs | 0; P.x = m.x; P.z = m.z; P.y = m.y || 0; P.vx = P.vz = P.vy = 0; P.slideT = 0; P.slideCd = 0; P.gr = false; P.hp = m.hp; P.dead = false; magOf.rifle = 30; magOf.sniper = 5; throwCd = 0; P.mag = P.weapon === 'knife' ? 0 : WEAPONS[P.weapon].mag; P.reloadT = 0; P.fellT = 0.4;
       if (mapInfo.pk && pkCp === 0) { P.yaw = Math.PI; P.pitch = 0; }
       $('ammolabel').textContent = 'Ammo'; updateAmmo(); updateHp();
     } else if (m.t === 'k') {
@@ -1615,7 +1620,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const replay0 = !!replay;
     if (!replay && !rpSaved) rpSaved = { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch, vx: P.vx, vy: P.vy, vz: P.vz };
     replay = { f: m.f, n: m.n, time: m.time, t: 0, i: 0, slow: false, end: 0 };
-    if (!replay0) rpHint = $('pkhint').textContent; $('pkhint').textContent = 'R: exit replay \u00b7 Q: slow motion';
+    if (!replay0) rpHint = $('pkhint').textContent; $('pkhint').textContent = 'R: exit replay \u00b7 Q: slow motion \u00b7 K: show / hide keys';
     $('pkname').textContent = 'Replay \u00b7 ' + m.n; $('pkdone').hidden = true; $('ks').hidden = true;
     state = 'play'; $('overlay').hidden = true; setHud(true); lock(); banner('Replay: ' + m.n + ' - ' + fmtT(m.time), 2200);
   }
@@ -1623,6 +1628,17 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (!replay) return; replay = null;
     if (rpSaved) { Object.assign(P, rpSaved); rpSaved = null; }
     P.vx = P.vz = P.vy = 0; $('pkhint').textContent = rpHint; pkHud(); if (mapInfo.pk) $('ks').hidden = cfg.ks === false;
+  }
+  function rpSmooth(r) {
+    const f = r.f, n = f.length / 6, W = 4; r.vx = new Float32Array(n); r.vz = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const i0 = Math.max(0, i - W), i1 = Math.min(n - 1, i + W), real = (f[i1 * 6] - f[i0 * 6]) / 100, nom = (i1 - i0) * 0.05;
+      if (real <= 0) continue;
+      const dtm = Math.abs(real - nom) < 0.3 * nom ? nom : real;      // position updates are sent every 50 ms: trust that unless the timestamps say the connection stalled
+      let vx = (f[i1 * 6 + 1] - f[i0 * 6 + 1]) / 20 / dtm, vz = (f[i1 * 6 + 3] - f[i0 * 6 + 3]) / 20 / dtm;
+      const s = Math.hypot(vx, vz); if (s > 17) { vx *= 17 / s; vz *= 17 / s; }      // the game caps horizontal speed at 17
+      r.vx[i] = vx; r.vz[i] = vz;
+    }
   }
   function replayStep(dt) {
     const r = replay, f = r.f, n = f.length / 6, last = f[(n - 1) * 6] / 100;
@@ -1633,9 +1649,19 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const a = r.i * 6, b = Math.min(n - 1, r.i + 1) * 6, span = Math.max(1, f[b] - f[a]), k = Math.max(0, Math.min(1, (tc - f[a]) / span));
     const px = P.x, pz = P.z, py = P.y;
     P.x = (f[a + 1] + (f[b + 1] - f[a + 1]) * k) / 20; P.y = (f[a + 2] + (f[b + 2] - f[a + 2]) * k) / 20; P.z = (f[a + 3] + (f[b + 3] - f[a + 3]) * k) / 20;
-    const y0 = f[a + 4] / 100, y1 = f[b + 4] / 100; P.yaw = y0 + tutWrap(y1 - y0) * k; P.pitch = (f[a + 5] + (f[b + 5] - f[a + 5]) * k) / 100;
-    const id = Math.max(dt, 0.001); P.vx = (P.x - px) / id; P.vz = (P.z - pz) / id; P.vy = (P.y - py) / id;
-    if (Math.hypot(P.vx, P.vz) > 60) { P.vx = P.vz = 0; }
+    const y0 = f[a + 4] / 100, y1 = f[b + 4] / 100; P.yaw = y0 + tutWrap(y1 - y0) * k;
+    const ma = Math.round(f[a + 5] / 1000), mb = Math.round(f[b + 5] / 1000), pa = f[a + 5] - ma * 1000, pb = f[b + 5] - mb * 1000;
+    P.pitch = (pa + (pb - pa) * k) / 100; r.km = ma > 0 ? ma - 1 : -1;      // recorded keys, or -1 for old replays (guessed below)
+    // speed shown = movement over a window of +-4 samples (about 0.4 s), not the jumpy frame-to-frame difference of the interpolated position
+    if (!r.vx) rpSmooth(r);
+    P.vx = r.vx[a / 6] + (r.vx[b / 6] - r.vx[a / 6]) * k; P.vz = r.vz[a / 6] + (r.vz[b / 6] - r.vz[a / 6]) * k;
+    const id = Math.max(dt, 0.001); P.vy = Math.max(-30, Math.min(30, (P.y - py) / id));
+    if (r.km >= 0) r.keys = r.km;
+    else {      // old replay without keys: guess them from the movement relative to the view
+      const sy = Math.sin(P.yaw), cy2 = Math.cos(P.yaw), vf = -P.vx * sy - P.vz * cy2, vr = P.vx * cy2 - P.vz * sy; let g = 0;
+      if (vf > 1.5) g |= 1; if (vf < -1.5) g |= 4; if (vr < -1.5) g |= 2; if (vr > 1.5) g |= 8; if (P.vy > 0.5 || P.vy < -0.5 || P.y > 0.05) g |= 16;
+      r.keys = g;
+    }
     $('pktime').textContent = fmtT(Math.min(r.t, last));
   }
   function pkHud() {
@@ -1773,7 +1799,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     const bob = Math.sin(performance.now() / 95) * Math.min(spd, 9) * 0.0016 * (P.gr && !mapInfo.pk && P.slideT <= 0 ? 1 : 0);
     if (!$('ks').hidden) {
       const on = (id, v) => $(id).classList.toggle('on', !!v);
-      on('ksW', keys.KeyW || keys.ArrowUp); on('ksA', keys.KeyA || keys.ArrowLeft); on('ksS', keys.KeyS || keys.ArrowDown); on('ksD', keys.KeyD || keys.ArrowRight); on('ksSp', keys.Space);
+      const rk = replay ? (replay.keys | 0) : -1; on('ksW', rk >= 0 ? rk & 1 : keys.KeyW || keys.ArrowUp); on('ksA', rk >= 0 ? rk & 2 : keys.KeyA || keys.ArrowLeft); on('ksS', rk >= 0 ? rk & 4 : keys.KeyS || keys.ArrowDown); on('ksD', rk >= 0 ? rk & 8 : keys.KeyD || keys.ArrowRight); on('ksSp', rk >= 0 ? rk & 16 : keys.Space);
       $('kssv').textContent = spd.toFixed(1);
     }
     { const air = P.y > 0.05 && P.vy !== 0; if (wasAir && !air && P.vyLast < -4) landDip = Math.min(0.16, -P.vyLast * 0.012); wasAir = air; P.vyLast = P.vy; landDip = Math.max(0, landDip - dt * 0.9 - landDip * dt * 6); }
@@ -1883,7 +1909,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     touchShow(on && state === 'play' && !(tutorial && tutMode === 'demo'));
     ['top', 'hp', 'ammo', 'cross', 'dash', 'streakhud', 'timer'].forEach((id) => { $(id).hidden = !on || pk; });
     $('right').hidden = !on; $('chat').hidden = !on; $('pkhud').hidden = !on || !pk; $('bhud').hidden = !on || !pk || tutorial; $('pkhint').hidden = !on || !pk;
-    $('ks').hidden = !(on && pk && cfg.ks !== false) || tutorial;
+    $('ks').hidden = !(on && pk && (replay ? cfg.rks !== false : cfg.ks !== false)) || tutorial;
     if (!on) { $('bossbar').hidden = true; $('pkdone').hidden = true; }
   }
   function showCard(mode, board, endMsg) {
@@ -1952,7 +1978,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (e.code === 'KeyP' && !e.repeat && state === 'play' && !chatOpen) { thirdP = !thirdP; try { localStorage.setItem('parena_tp', thirdP ? '1' : '0'); } catch (err) {} }
     if (e.code === 'KeyF' && !e.repeat) toggleFullscreen();
     if (e.code === 'Space' && !e.repeat) jumpBuf = 0.15;
-    if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (!rpOffline) lock(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; return; }
+    if (replay && state === 'play') { if (e.code === 'KeyR') { endReplay(); if (!rpOffline) lock(); if (rpOffline) { if (document.exitPointerLock) document.exitPointerLock(); state = 'menu'; showCard('menu'); } } else if (e.code === 'KeyQ') replay.slow = !replay.slow; else if (e.code === 'KeyK') { cfg.rks = cfg.rks === false; saveCfg(); $('ks').hidden = cfg.rks === false; $('rksopt').checked = cfg.rks !== false; banner('Keys ' + (cfg.rks === false ? 'hidden' : 'shown'), 900); } return; }
     if (e.code === 'KeyR' && state === 'play') { if (mapInfo.pk) { pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true; pkHud(); wsSend({ t: 'restart' }); } else reload(); }
     if ((e.code === 'KeyN' || e.code === 'KeyB') && state === 'play' && mapInfo.pk) { const nl = mapInfo.pk.lv + (e.code === 'KeyN' ? 1 : -1); if (nl >= 1 && nl <= PK_N) { cfg.pkLevel = nl; saveCfg(); wsSend({ t: 'lvl', n: nl }); } }
     if (e.code === 'KeyE') dash();
@@ -2070,6 +2096,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
 function tutNew() { return { t: 0, wp: 0, cur: -1, hops: 0, lastOnG: true }; }
 function tutWrap(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 // returns the keys the "player" holds; also turns P.yaw like a mouse would
+// A good player holds ONE strafe key for a whole hop (D, then A on the next hop, ...), keeps W down, never lets go of Space, and turns the view smoothly into the strafe
 function tutStep(S, P, gAt, dt, route, plats) {
   S.t += dt;
   const g = gAt(P.x, P.z, P.y), onG = P.y <= g + 0.001 && P.vy <= 0;
@@ -2077,19 +2104,28 @@ function tutStep(S, P, gAt, dt, route, plats) {
   if (S.wp >= route.length) { S.done = true; return out; }
   const wp = route[S.wp], dx = wp.x - P.x, dz = wp.z - P.z, dist = Math.hypot(dx, dz);
   if (dist < wp.r) { S.wp++; return tutStep(S, P, gAt, 0, route, plats); }
-  const desired = Math.atan2(-dx, -dz), sp = Math.hypot(P.vx, P.vz);
-  let goal = desired, rate = 4.5;
-  if (S.t < 2.6) { goal = Math.sin(S.t * 2.4) * 0.55; rate = 6; }                  // look around first
+  const desired = Math.atan2(-dx, -dz), sp = Math.hypot(P.vx, P.vz), vh = sp > 1.5 ? Math.atan2(-P.vx, -P.vz) : desired;
+  let goal = desired, gain = 5;
+  if (S.t < 2.6) { goal = Math.sin(S.t * 2.4) * 0.55; gain = 7; }                  // look around first
   else {
-    out.W = onG || !wp.strafe;
-    if (!onG && wp.strafe && sp > 3) {
-      goal = Math.atan2(-P.vx, -P.vz); rate = 9;
-      const side = dx * Math.cos(P.yaw) + dz * -Math.sin(P.yaw);
-      if (side > 0.5) out.D = true; else if (side < -0.5) out.A = true;
+    out.W = true;
+    if (wp.strafe) {
+      if (onG) { goal = desired; gain = 9; S.dwell = 0; S.s = S.s || 1; }       // on the ground: look where you are going, W only
+      else {
+        // in the air: hold D or A and keep the view on the direction of travel, so the strafe key always pushes sideways (that is what adds speed).
+        // Switch side when the heading drifts past the target line, but never faster than every 0.11 s, so the keys stay readable.
+        out.W = false;
+        S.dwell = (S.dwell || 0) + dt;
+        const err = tutWrap(desired - vh);
+        if (S.dwell > 0.11 && ((err > 0.1 && S.s > 0) || (err < -0.1 && S.s < 0))) { S.s = -S.s; S.dwell = 0; }
+        if (S.s > 0) out.D = true; else out.A = true;
+        goal = vh; gain = 40;
+      }
     }
   }
-  const dy = tutWrap(goal - P.yaw), step = Math.max(-rate * dt, Math.min(rate * dt, dy));
+  const dy = tutWrap(goal - P.yaw), step = Math.max(-14 * dt, Math.min(14 * dt, dy * Math.min(1, dt * gain)));
   P.yaw += step; out.turn = dt > 0 ? step / dt : 0;
+  S.lastOnG = onG;
   if (S.t >= 2.6 && onG) {
     if (wp.hop) out.Space = true;
     else if (wp.jump) {                    // tap jump when the edge of the platform is right under the feet
@@ -2105,8 +2141,8 @@ function tutStep(S, P, gAt, dt, route, plats) {
   return out;
 }
 
-  const TUT_PLATS = [[0,0,7,7,"start"],[0,-10.5,6,14,"plat"],[0,-23,6,6,"plat"],[0,-37.27,20,17.53,"plat"],[0,-54.24,20,10.41,"plat"],[0,-68.28,20,10.47,"plat"],[0,-83.21,20,10.58,"plat"],[0,-99.29,20,11.18,"plat"],[0,-116.53,20,11.31,"plat"],[0,-147.69,20,36.62,"finish"]].map(([x, z, w, d, kind]) => ({ x, z, w, d, top: 0, kind }));
-  const TUT_ROUTE = [[0,-9,1.5,0,0],[0,-22.5,1.5,2,1],[0,-31,2,2,1],[6,-42,4,5,2],[-6,-56,4,5,2],[6,-70,4,5,3],[-6,-84,4,5,3],[6,-98,4,5,3],[-6,-112,4,5,3],[6,-126,4,5,4],[-6,-140,4,5,4],[0,-156,4,0,5]].map(([x, z, r, f, ph]) => ({ x, z, r, hop: !!(f & 1), jump: !!(f & 2), strafe: !!(f & 4), ph }));
+  const TUT_PLATS = [[0,0,7,7,"start"],[0,-10.5,6,14,"plat"],[0,-23,6,6,"plat"],[0,-68,20,79,"plat"],[0,-132.15,20,35.7,"finish"]].map(([x, z, w, d, kind]) => ({ x, z, w, d, top: 0, kind }));
+  const TUT_ROUTE = [[0,-9,1.5,0,0],[0,-22.5,1.5,2,1],[0,-31,2,2,1],[0,-45,4,1,2],[0,-57,4,1,2],[2.5,-73,4,5,3],[-2.5,-87,4,5,3],[2.5,-101,4,5,3],[0,-116,4,5,4],[0,-138,3,0,5]].map(([x, z, r, f, ph]) => ({ x, z, r, hop: !!(f & 1), jump: !!(f & 2), strafe: !!(f & 4), ph }));
   const TUT_TEXT = [
     ['1 \u00b7 Walk', 'Hold W to run forward. Move the mouse to look around.'],
     ['2 \u00b7 Jump', 'Press SPACE right at the edge of a platform to jump over a gap.'],
@@ -2119,9 +2155,31 @@ function tutStep(S, P, gAt, dt, route, plats) {
   let tutorial = false, tutMode = 'demo', tutS = null, tutAcc = 0, tutPh = -1, tutLast = null, tutYaw = 0, tutSpT = 0, tutVY = 0;
   function tutCaption(i) { if (i === tutPh) return; tutPh = i; $('tutt').textContent = TUT_TEXT[i][0]; $('tutx').textContent = TUT_TEXT[i][1]; }
   function tutHud() { setHud(true); $('pkhud').hidden = true; $('bhud').hidden = true; $('right').hidden = true; $('chat').hidden = true; $('pkhint').hidden = true; $('tut').hidden = false; $('ks').hidden = true; }
+  // The demo is simulated once, up front, with the game's own physics at a fixed 60 Hz (nothing is heard or drawn), then played back
+  // by interpolating between the stored steps: smooth on any refresh rate, identical every time, and the keys shown are exactly the ones pressed.
+  let tutFr = null, tutN = 0, tutT = 0, tutKeysSm = 0, tutHold = [0, 0, 0, 0, 0], tutCamYaw = 0;
+  const TUT_STRIDE = 9, TUT_SPEED = 0.85;
+  function tutBuild() {
+    const save = Object.assign({}, P), sk = {}; for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']) sk[k] = keys[k];
+    tutSilent = true;
+    P.x = 0; P.z = 0; P.y = 0.05; P.vx = P.vz = P.vy = 0; P.yaw = 0; P.pitch = -0.12; P.dead = false; P.combo = 0; P.gT = 0; P.air = 0; P.gn = 0; P.gr = false;
+    const S = tutNew(), out = [], cap = 60 * 120;
+    for (let i = 0; i < cap; i++) {
+      const o = tutStep(S, P, groundAt, 1 / 60, TUT_ROUTE, TUT_PLATS);
+      keys.KeyW = o.W; keys.KeyA = o.A; keys.KeyD = o.D; keys.KeyS = false; keys.Space = o.Space;
+      move(1 / 60, true);
+      const wp = TUT_ROUTE[Math.min(S.wp, TUT_ROUTE.length - 1)];
+      out.push(P.x, P.y, P.z, P.yaw, P.vx, P.vz, P.vy, (o.W ? 1 : 0) | (o.A ? 2 : 0) | (o.D ? 8 : 0) | (o.Space ? 16 : 0) | (o.turn > 0.25 ? 32 : 0) | (o.turn < -0.25 ? 64 : 0), wp.ph);
+      if (S.done || P.y < -8) break;
+    }
+    tutSilent = false;
+    Object.assign(P, save); for (const k in sk) keys[k] = sk[k];
+    tutFr = new Float32Array(out); tutN = out.length / TUT_STRIDE;
+    window.__tutFr = tutFr;
+  }
   function tutReset(mode) {
     tutMode = mode; P.x = 0; P.z = 0; P.y = 0.05; P.vx = P.vz = P.vy = 0; P.yaw = 0; P.pitch = -0.12; P.dead = false; P.hp = 100; P.fellT = 0.4;
-    tutS = tutNew(); tutAcc = 0; tutLast = null; tutYaw = 0; tutVY = 0;
+    tutS = tutNew(); tutAcc = 0; tutLast = null; tutYaw = 0; tutVY = 0; tutT = 0; tutCamYaw = 0; tutHold = [0, 0, 0, 0, 0];
     for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']) keys[k] = false;
     $('tutend').hidden = mode !== 'done';
     tutCaption(mode === 'demo' ? 0 : mode === 'done' ? 5 : 6);
@@ -2135,35 +2193,40 @@ function tutStep(S, P, gAt, dt, route, plats) {
     if (boardStart) boardStart.mesh.visible = false; if (boardFin) boardFin.mesh.visible = false;
     pkCp = 0; pkT0 = 0; pkTime = null; pkDone = false; $('pkdone').hidden = true;
     state = 'play'; $('overlay').hidden = true; sleeve.color.set(cfg.color);
+    tutBuild();
     tutPh = -1; tutReset('demo'); lock();
-    if (TOUCH) { try { const de = document.documentElement, p = !document.fullscreenElement && de.requestFullscreen && de.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (e) {} }
+    if (TOUCH) { try { const de = document.documentElement, p = !document.fullscreenElement && de.requestFullscreen && de.requestFullscreen({ navigationUI: 'hide' }); if (p && p.then) p.then(() => { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {}); } catch (e) {}
+    }
   }
   function tutFinish() {
     tutMode = 'done'; for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']) keys[k] = false;
     $('tutend').hidden = false; tutCaption(5); tutHud(); if (document.exitPointerLock) document.exitPointerLock();
   }
   function tutUpdate(dt, alive) {
-    let o = null;
-    if (tutMode === 'demo') {
-      tutAcc = Math.min(tutAcc + dt * 0.62, 0.1);
-      while (tutAcc >= 1 / 60) {
-        tutAcc -= 1 / 60;
-        o = tutStep(tutS, P, groundAt, 1 / 60, TUT_ROUTE, TUT_PLATS);
-        keys.KeyW = o.W; keys.KeyA = o.A; keys.KeyD = o.D; keys.KeyS = false; keys.Space = o.Space;
-        move(1 / 60, true);
-        if (tutS.done) { tutFinish(); break; }
-      }
-      P.pitch += (-0.14 - P.pitch) * Math.min(1, dt * 3);
-      tutVY += tutWrap(P.yaw - tutVY) * Math.min(1, dt * 5);
-      if (o) { tutLast = o; if (o.Space) tutSpT = 0.25; }
-      tutSpT = Math.max(0, tutSpT - dt);
-      if (tutMode === 'demo') tutCaption(TUT_ROUTE[Math.min(tutS.wp, TUT_ROUTE.length - 1)].ph);
+    let km = null;
+    if (tutMode === 'demo' && tutFr) {
+      tutT += dt * TUT_SPEED * 60;                       // in simulation steps
+      const f = tutFr, i = Math.min(tutN - 1, Math.floor(tutT)), j = Math.min(tutN - 1, i + 1), k = Math.min(1, tutT - i), a = i * TUT_STRIDE, b = j * TUT_STRIDE, L = (u) => f[a + u] + (f[b + u] - f[a + u]) * k;
+      P.x = L(0); P.y = L(1); P.z = L(2); P.vx = L(4); P.vz = L(5); P.vy = L(6);
+      P.yaw = f[a + 3] + tutWrap(f[b + 3] - f[a + 3]) * k;
+      P.gr = P.y <= groundAt(P.x, P.z, P.y) + 0.02 && P.vy <= 0.01;
+      P.pitch += (-0.13 - P.pitch) * Math.min(1, dt * 3);
+      tutVY += tutWrap(P.yaw - tutVY) * Math.min(1, dt * 30);
+      km = f[a + 7] | 0; tutCaption(f[a + 8]);
+      if (i >= tutN - 1) tutFinish();
     } else move(dt, alive);
-    // light up the keys: the bot's while it plays, the player's own afterwards
-    const k = tutMode === 'demo' ? Object.assign({}, tutLast || {}, { Space: tutSpT > 0 || !!(tutS.t > 2.6 && TUT_ROUTE[Math.min(tutS.wp, TUT_ROUTE.length - 1)].hop && !tutS.done) }) : { W: keys.KeyW, A: keys.KeyA, S: keys.KeyS, D: keys.KeyD, Space: keys.Space };
-    const yr = dt > 0 ? (P.yaw - tutYaw) / dt : 0; tutYaw = P.yaw;
-    const on = (id, v) => $(id).classList.toggle('on', !!v);
-    on('tkW', k.W); on('tkA', k.A); on('tkS', k.S); on('tkD', k.D); on('tkSp', k.Space); on('tkL', yr > 0.3); on('tkR', yr < -0.3);
+    // keys: the demo's recorded ones (each stays lit for at least 90 ms so a tap is visible), or the player's own
+    const now = performance.now(), on = (id, v) => $(id).classList.toggle('on', !!v);
+    let kk;
+    if (km != null) {
+      const bits = [1, 2, 4, 8, 16]; for (let q = 0; q < 5; q++) if (km & bits[q]) tutHold[q] = now + 90;
+      kk = { W: now < tutHold[0], A: now < tutHold[1], S: now < tutHold[2], D: now < tutHold[3], Space: now < tutHold[4] };
+      on('tkL', km & 32); on('tkR', km & 64);
+    } else {
+      kk = { W: keys.KeyW, A: keys.KeyA, S: keys.KeyS, D: keys.KeyD, Space: keys.Space };
+      const yr = dt > 0 ? tutWrap(P.yaw - tutYaw) / dt : 0; tutYaw = P.yaw; on('tkL', yr > 0.3); on('tkR', yr < -0.3);
+    }
+    on('tkW', kk.W); on('tkA', kk.A); on('tkS', kk.S); on('tkD', kk.D); on('tkSp', kk.Space);
     const sp = Math.hypot(P.vx, P.vz);
     $('tutsv').textContent = sp.toFixed(1); $('tutsb').style.width = Math.min(100, sp / 17 * 100) + '%';
   }

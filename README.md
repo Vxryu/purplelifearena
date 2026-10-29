@@ -159,3 +159,18 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 - Each board (daily, monthly, all-time) now keeps 100 times (replays are still kept for the top 10 only).
 - In game, the boards at the start and finish show 5 rows at a time: scroll with the mouse wheel or PgUp / PgDn (the "Board" buttons on mobile). The Records box in the menu lists all 100.
 - The rank above a player's head (#1 to #100, "WORLD RECORD HOLDER" for #1) follows the all-time board of the level.
+
+## Replay keystrokes
+- Replays now show the keys the runner really pressed (W A S D Space) in the keystrokes box. Replays recorded before this update show a guess made from the movement.
+- Turn them off or on with the **Keystrokes in replays** option in the menu, or press `K` during a replay.
+
+## Respawn fix
+- After a fall the server ignores position updates that were sent before the client received the respawn, and a second "fell" right after a respawn. Before, those late messages started the clock again at the start platform, so you had to respawn twice.
+
+## Bunny hop tutorial (rebuilt)
+- The demo is now simulated once with the game's own physics (60 Hz, silent), then played back by interpolation, so it is smooth on any refresh rate and the keys shown are exactly the keys pressed (each stays lit for at least 90 ms).
+- The bot plays like a good player: walks, edge-jumps a gap, hops without letting go of Space, then strafe-jumps (D / A alternating, the view following the direction of travel) and reaches the 17 u/s cap before clearing a wide gap. Playback runs at 0.85x.
+- The course is a long lane followed by a gap that only bunny-hop speed can clear (the lane end and the finish platform are tuned to the bot's recorded landing spots; if you change the physics or the bot, rerun it and adjust `TUT_PLATS`).
+
+## Replay speed
+- The speed shown in a replay is now measured over about 0.4 s of recorded movement (position updates are 50 ms apart), instead of the frame-to-frame difference of the interpolated position, and never goes above the game's 17 u/s cap. It no longer jumps to 20 and back to 14.
