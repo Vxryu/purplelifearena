@@ -251,7 +251,8 @@ function respawn(room, p) {
   if (room.mode === 'pk') {
     const q = pkSpot(room, p);
     p.x = q[0]; p.y = q[1]; p.z = q[2]; p.hp = 100; p.dead = false; p.inv = 0;
-    send(p, { t: 'respawn', x: p.x, y: p.y, z: p.z, hp: 100 });
+    p.rs = (p.rs | 0) + 1; p.respT = Date.now();      // position updates sent before the client got this respawn carry the old counter and are ignored
+    send(p, { t: 'respawn', x: p.x, y: p.y, z: p.z, hp: 100, rs: p.rs });
     return;
   }
   let sp;
@@ -479,7 +480,7 @@ function recordTime(lv, name, time, rec) {
 }
 function flatRec(rec) {
   if (!rec || rec.length < 10 || rec.length >= 4000) return undefined;
-  const out = []; for (const r of rec) out.push(r[0], Math.round(r[1] * 20), Math.round(r[2] * 20), Math.round(r[3] * 20), Math.round(r[4] * 100), Math.round(r[5] * 100));
+  const out = []; for (const r of rec) out.push(r[0], Math.round(r[1] * 20), Math.round(r[2] * 20), Math.round(r[3] * 20), Math.round(r[4] * 100), Math.round(r[5] * 100) + 1000 * ((r[6] | 0) + 1));      // pitch is stored with the pressed keys on top: +1000 * (keys + 1), old replays have none
   return out;
 }
 function sendBoard(lv, to) {
@@ -521,6 +522,8 @@ wss.on('connection', (ws) => {
       if (r.mode === 'dm') { const st = dmStat(me.name); send(me, { t: 'dmstat', k: st.k, s: st.s }); }
     } else if (m.t === 'st' && me && !me.dead) {
       if (![m.x, m.y, m.z, m.yaw, m.pitch].every((v) => typeof v === 'number' && isFinite(v))) return;
+      if ((m.rs !== undefined || me.rsSeen) && (m.rs | 0) !== (me.rs | 0)) { if (m.rs !== undefined) me.rsSeen = true; return; }      // stale position from before the respawn (it would start the clock again)
+      if (m.rs !== undefined) me.rsSeen = true;
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
       const map = room.map, pk = map.pk;
       let nx = m.x, nz = m.z;
@@ -530,6 +533,7 @@ wss.on('connection', (ws) => {
       if (dd > maxd) { nx = me.x + dx / dd * maxd; nz = me.z + dz / dd * maxd; }
       if (pk) me.bud = Math.max(0, me.bud - Math.min(dd, maxd));
       const p = { x: nx, z: nz }; pushOut(map, p, 0.45, m.y);
+      me.k = (+m.k | 0) & 31;      // keys held (W A S D Space) for the replay
       me.x = p.x; me.z = p.z; me.yaw = m.yaw; me.pitch = clamp(m.pitch, -1.5, 1.5);
       if (!pk) {
         me.y = clamp(m.y, 0, 8); me.sl = m.sl ? 1 : 0;
@@ -539,7 +543,7 @@ wss.on('connection', (ws) => {
       me.y = clamp(m.y, pk.kill - 5, pk.bounds[5] + 12);
       if (me.finished) return;
       // replay recording: one sample per position update from the moment the clock starts
-      if (me.pkStart) { if (!me.rec) me.rec = []; if (me.rec.length < 4000) me.rec.push([Math.round((Date.now() - me.pkStart) / 10), me.x, me.y, me.z, me.yaw, me.pitch]); } else me.rec = null;
+      if (me.pkStart) { if (!me.rec) me.rec = []; if (me.rec.length < 4000) me.rec.push([Math.round((Date.now() - me.pkStart) / 10), me.x, me.y, me.z, me.yaw, me.pitch, me.k | 0]); } else me.rec = null;
       // the clock starts as soon as you step off the green start platform (7 x 7)
       if (!me.pkStart && (Math.abs(me.x - pk.start[0]) > 3.5 || Math.abs(me.z - pk.start[2]) > 3.5)) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
       const nextCp = pk.cps[me.cp];
@@ -575,6 +579,7 @@ wss.on('connection', (ws) => {
       const str = JSON.stringify(msg);
       for (const r of allRooms()) for (const p of r.players.values()) if (p.ws.readyState === 1) p.ws.send(str);       // global: every room hears it
     } else if (m.t === 'fell' && me && room.mode === 'pk') {
+      if (Date.now() - (me.respT || 0) < 600) return;      // a second 'fell' sent before the client had the respawn
       if (me.finished) me.cp = 0;       // fell after finishing: start over
       me.falls++; if (!me.cp) me.pkStart = 0; me.finished = false; respawn(room, me); send(me, { t: 'pkr', f: me.falls, cp: me.cp });     // with a checkpoint the clock keeps running
     } else if (m.t === 'restart' && me && room.mode === 'pk') {
