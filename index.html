@@ -1426,12 +1426,28 @@ body.touch #tutcap span { font-size: 0.78rem; }
     if (loggedName) { $('who').textContent = loggedName; cfg.name = loggedName; saveCfg(); try { refreshBoards(); } catch (e) {} }
   }
   function setTok(t) { authTok = t || ''; try { if (t) localStorage.setItem('parena_tok', t); else localStorage.removeItem('parena_tok'); } catch (e) {} }
+  function deviceId() {
+    let c = ''; try { c = localStorage.getItem('parena_did') || ''; } catch (e) {}
+    if (!/^[a-z0-9]{16,64}$/.test(c)) { c = ''; for (let i = 0; i < 32; i++) c += Math.floor(Math.random() * 36).toString(36); try { localStorage.setItem('parena_did', c); } catch (e) {} }
+    return c;
+  }
+  // hardware fingerprint: GPU, screen, cores, memory, time zone, language, platform + a canvas rendering (same machine = same value, even in another browser profile)
+  function fingerprint() {
+    const parts = [];
+    try { const gl = document.createElement('canvas').getContext('webgl'); const ext = gl && gl.getExtension('WEBGL_debug_renderer_info'); parts.push(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : 'nogl'); } catch (e) { parts.push('gl?'); }
+    try { const cv = document.createElement('canvas'); cv.width = 120; cv.height = 30; const g = cv.getContext('2d'); g.textBaseline = 'top'; g.font = '16px Arial'; g.fillStyle = '#f60'; g.fillRect(10, 2, 60, 20); g.fillStyle = '#069'; g.fillText('Purple Arena 1.0', 4, 4); parts.push(cv.toDataURL().slice(-80)); } catch (e) { parts.push('cv?'); }
+    parts.push(screen.width + 'x' + screen.height + 'x' + screen.colorDepth, navigator.hardwareConcurrency || 0, navigator.deviceMemory || 0, navigator.platform || '', (navigator.languages || [navigator.language]).join(','), Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const str = parts.join('~'); let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) { const ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+  }
   async function authCall(op) {
     const user = $('name').value.trim(), pass = $('pass').value;
     if (!user || !pass) { setMsg('Enter a username and a password.'); return; }
     setMsg('...');
     try {
-      const r = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, user, pass }) });
+      const r = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, user, pass, did: deviceId(), fp: fingerprint() }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setMsg(j.err || 'Error ' + r.status); return; }
       setTok(j.tok); $('pass').value = ''; showAuth(j.name); setMsg(op === 'register' ? 'Account created. You are signed in.' : '');

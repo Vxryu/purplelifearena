@@ -533,7 +533,7 @@ let accSaveT = null;
 function saveAcc() { if (accSaveT) return; accSaveT = setTimeout(() => { accSaveT = null; fs.writeFile(ACC_FILE, JSON.stringify(acc), () => {}); }, 500); }
 const sha = (x) => crypto.createHash('sha256').update(x).digest('hex');
 const hashPw = (pw, salt) => crypto.scryptSync(pw, salt, 32).toString('hex');
-const MAX_ACCOUNTS_PER_IP = 2;
+const MAX_ACCOUNTS_PER_IP = 1;      // one account per IP, per device id and per hardware fingerprint
 const authFails = new Map();
 function userOfToken(tok) { if (typeof tok !== 'string' || tok.length < 20 || tok.length > 80) return null; const k = acc.tok[sha(tok)]; return k && acc.users[k] ? acc.users[k] : null; }
 function newToken(lower) {
@@ -558,9 +558,12 @@ function authApi(req, res, ip) {
       if (pass.length < 6 || pass.length > 64) { json(400, { err: 'Password: 6 to 64 characters.' }); return; }
       const low = user.toLowerCase();
       if (acc.users[low]) { f.n++; authFails.set(ip, f); json(409, { err: 'This username is already taken.' }); return; }
-      if (Object.values(acc.users).filter((u) => u.ip === ip).length >= MAX_ACCOUNTS_PER_IP) { json(429, { err: 'Too many accounts created from this connection.' }); return; }
+      const did = /^[a-z0-9]{16,64}$/.test(m.did || '') ? m.did : '', fp = /^[a-z0-9]{8,64}$/.test(m.fp || '') ? m.fp : '';
+      if (!did || !fp) { json(400, { err: 'Reload the page (Ctrl+F5) then try again.' }); return; }
+      const dupe = Object.values(acc.users).find((u) => u.ip === ip || u.did === did || u.fp === fp);
+      if (dupe) { json(429, { err: 'An account already exists for this connection or device. Log in with it (' + dupe.n.slice(0, 2) + '***).' }); return; }
       const salt = crypto.randomBytes(16).toString('hex');
-      acc.users[low] = { n: user, s: salt, h: hashPw(pass, salt), ip, c: now };
+      acc.users[low] = { n: user, s: salt, h: hashPw(pass, salt), ip, did, fp, c: now };
       json(200, { name: user, tok: newToken(low) }); return;
     }
     if (m.op === 'login') {
