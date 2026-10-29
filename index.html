@@ -826,10 +826,12 @@ body.touch #tutcap span { font-size: 0.78rem; }
       const mesh = new THREE.Mesh(geo, boxMaterial(kind === 'ramp' ? 'block' : kind, col, w, d, h, th));
       if (kind === 'ramp') mesh.rotation.y = [0, Math.PI, -Math.PI / 2, Math.PI / 2][e[8] | 0];
       mesh.position.set(x, y0 + h / 2, z); mesh.castShadow = kind !== 'edge'; mesh.receiveShadow = true; world.add(mesh); solids.push(mesh);
-      if ((kind === 'cp' || kind === 'finish' || kind === 'start') && pk) {
-        const c = kind === 'cp' ? 0x4d7bff : kind === 'finish' ? 0xffd24d : 0x4dff9a;
-        const bgeo = kind === 'start' ? new THREE.BoxGeometry(w - 0.1, 14, d - 0.1) : new THREE.CylinderGeometry(Math.min(w, d) / 2 - 0.2, Math.min(w, d) / 2 - 0.2, 14, 16, 1, true);      // the start zone fills the whole square
-        const beam = new THREE.Mesh(bgeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
+      if (kind === 'start' && pk) {      // no zone on the start square: only a green line on the front edge, the clock starts when you cross it
+        const fr = pk.front || [0, -1], gate = new THREE.Mesh(fr[0] ? new THREE.BoxGeometry(0.12, 5, d) : new THREE.BoxGeometry(w, 5, 0.12), new THREE.MeshBasicMaterial({ color: 0x4dff9a, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
+        gate.position.set(x + fr[0] * w / 2, y0 + h + 2.5, z + fr[1] * d / 2); world.add(gate); glowPulse.push(gate);
+      } else if ((kind === 'cp' || kind === 'finish') && pk) {
+        const c = kind === 'cp' ? 0x4d7bff : 0xffd24d;
+        const beam = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(w, d) / 2 - 0.2, Math.min(w, d) / 2 - 0.2, 14, 16, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
         beam.position.set(x, y0 + h + 7, z); world.add(beam); glowPulse.push(beam);
       }
       if (pk && (kind === 'plat' || kind === 'start' || kind === 'finish')) {

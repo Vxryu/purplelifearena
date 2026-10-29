@@ -235,9 +235,10 @@ function parkour(L) {
       const b = B('cave', x, z, w, d, H, col, y0); boxes.push(b); made++;
     }
   }
+  const f1 = boxes.find((b) => b.kind === 'plat' || b.kind === 'finish'), front = f1 ? (Math.abs(f1.x) > Math.abs(f1.z) ? [Math.sign(f1.x), 0] : [0, Math.sign(f1.z) || -1]) : [0, -1];      // the clock starts when the player crosses the start platform's edge on this side
   return {
     id: 'pk' + L, name: 'Level ' + L + ' - ' + band.name, biome: band.th, th: band.th, half: 2000, boxes, spawns: [[0, 0]], pk: {
-      lv: L, n: PK_LEVELS, start: [0, 0, 0], cps, cpR: 4.2, fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
+      lv: L, n: PK_LEVELS, start: [0, 0, 0], front, cps, cpR: 4.2, fin: [fin.x, fin.top, fin.z], kill: Math.min(minY, 0) - 14, pathLen,
       bounds: [minX - (big ? 18 : 20), maxX + (big ? 18 : 20), minZ - (big ? 18 : 20), maxZ + (big ? 18 : 20), minY, maxY]
     }
   };

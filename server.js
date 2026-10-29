@@ -34,6 +34,7 @@ const server = http.createServer((req, res) => {
     if (u.pathname === '/api/dm') { out(careerBoard()); return; }
     if (u.pathname === '/api/map') { out(null, pkRoom(lv).map.wire); return; }
     if (u.pathname === '/api/rp') {
+      if (u.searchParams.get('p') === 't') { const t = tasRow(lv); out(t ? { t: 'rpd', lv, n: 'TAS Bot', time: t.t, f: t.f } : { t: 'rpd', lv, none: 1 }); return; }
       const sc = levelScores(lv), p = u.searchParams.get('p'), list = p === 'd' ? sc.day.rows : p === 'm' ? sc.month.rows : sc.all, row = list[Math.max(0, Math.min(9, Math.floor(+u.searchParams.get('i')) || 0))];
       out(row && row.r ? { t: 'rpd', lv, n: row.n, time: row.t, f: row.r } : { t: 'rpd', lv, none: 1 }); return;
     }
@@ -481,9 +482,12 @@ function levelScores(lv) {
   if (!s.month || s.month.k !== mk) s.month = { k: mk, rows: [] };
   return s;
 }
+// TAS bot runs (tas.json, built by make-tas.js): shown in the "TAS" tab of the records box, never part of the real boards or ranks
+let tasData = {}; try { tasData = JSON.parse(fs.readFileSync(path.join(__dirname, 'tas.json'), 'utf8')); } catch (e) { tasData = {}; }
+function tasRow(lv) { const t = tasData[lv]; return t && t.f && t.f.length >= 12 ? t : null; }
 function board(lv) {
-  const s = levelScores(lv), f = (l) => l.slice(0, 100).map((r) => [r.n, r.t, r.r ? 1 : 0]);
-  return { d: f(s.day.rows), m: f(s.month.rows), a: f(s.all) };
+  const s = levelScores(lv), f = (l) => l.slice(0, 100).map((r) => [r.n, r.t, r.r ? 1 : 0]), t = tasRow(lv);
+  return { d: f(s.day.rows), m: f(s.month.rows), a: f(s.all), t: t ? [['TAS Bot', t.t, 1]] : [] };
 }
 function addTime(list, name, time, rec) {
   const key = name.toLowerCase(), old = list.find((r) => r.n.toLowerCase() === key);
@@ -609,8 +613,8 @@ wss.on('connection', (ws, req) => {
       const t = Date.now(), dt = Math.min(0.5, (t - me.lastSt) / 1000); me.lastSt = t;
       const map = room.map, pk = map.pk;
       let nx = m.x, nz = m.z;
-      // speed limit with a movement budget: it refills at 21 u/s (bhop tops out at 17) and holds at most 6 u, so neither lag bursts nor flooding position messages can skip ahead
-      me.bud = Math.min(6, (me.bud == null ? 6 : me.bud) + 21 * dt);
+      // speed limit with a movement budget: it refills at 30 u/s (the speed cap is 25) and holds at most 6 u, so neither lag bursts nor flooding position messages can skip ahead
+      me.bud = Math.min(6, (me.bud == null ? 6 : me.bud) + 30 * dt);
       const dx = nx - me.x, dz = nz - me.z, dd = Math.hypot(dx, dz), maxd = pk ? me.bud : 34 * dt + 1.2;
       if (dd > maxd) { nx = me.x + dx / dd * maxd; nz = me.z + dz / dd * maxd; }
       if (pk) me.bud = Math.max(0, me.bud - Math.min(dd, maxd));
@@ -627,12 +631,12 @@ wss.on('connection', (ws, req) => {
       // replay recording: one sample per position update from the moment the clock starts
       if (me.pkStart) { if (!me.rec) me.rec = []; if (me.rec.length < 4000) me.rec.push([Math.round((Date.now() - me.pkStart) / 10), me.x, me.y, me.z, me.yaw, me.pitch, me.k | 0]); } else me.rec = null;
       // the clock starts as soon as you step off the green start platform (7 x 7)
-      if (!me.pkStart && (Math.abs(me.x - pk.start[0]) > 3.5 || Math.abs(me.z - pk.start[2]) > 3.5)) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
+      if (!me.pkStart && (me.x - pk.start[0]) * pk.front[0] + (me.z - pk.start[2]) * pk.front[1] > 3.5) { me.pkStart = Date.now(); send(me, { t: 'pks' }); }
       const nextCp = pk.cps[me.cp];
       if (nextCp && Math.hypot(me.x - nextCp[0], me.z - nextCp[2]) < (pk.cpR || 2.6) && Math.abs(me.y - nextCp[1]) < 2.2) { me.cp++; send(me, { t: 'cp', i: me.cp, n: pk.cps.length }); }
       else if (!nextCp && me.pkStart && Math.hypot(me.x - pk.fin[0], me.z - pk.fin[2]) < 3.2 && Math.abs(me.y - pk.fin[1]) < 2.2) {
         const time = (Date.now() - me.pkStart) / 1000;
-        if (time < Math.max(0, Math.hypot(pk.fin[0] - pk.start[0], pk.fin[2] - pk.start[2]) - 7) / 21) return;      // faster than the straight line at top speed: impossible, so not saved
+        if (time < Math.max(0, Math.hypot(pk.fin[0] - pk.start[0], pk.fin[2] - pk.start[2]) - 7) / 30) return;      // faster than the straight line at top speed: impossible, so not saved
         me.finished = true;
         const res = recordTime(room.level, me.name, Math.round(time * 100) / 100, flatRec(me.rec));
         send(me, { t: 'fin', lv: room.level, time: Math.round(time * 100) / 100, rank: res.rank, rd: res.rd, rm: res.rm, pb: res.pb ? 1 : 0, b: board(room.level) });
@@ -642,6 +646,7 @@ wss.on('connection', (ws, req) => {
       shoot(room, me, m);
     } else if (m.t === 'rp' && me) {
       const now = Date.now(); if (now - (me.lastRp || 0) < 400) return; me.lastRp = now;
+      if (m.p === 't') { const lv = clamp(Math.floor(+m.lv) || 1, 1, PK_LEVELS), t = tasRow(lv); send(me, t ? { t: 'rpd', lv, n: 'TAS Bot', time: t.t, f: t.f } : { t: 'rpd', lv, none: 1 }); return; }
       const lv = clamp(Math.floor(+m.lv) || 1, 1, PK_LEVELS), sc = levelScores(lv), list = m.p === 'd' ? sc.day.rows : m.p === 'm' ? sc.month.rows : sc.all, row = list[clamp(Math.floor(+m.i) || 0, 0, 9)];
       if (row && row.r) send(me, { t: 'rpd', lv, n: row.n, time: row.t, f: row.r }); else send(me, { t: 'rpd', lv, none: 1 });
     } else if (m.t === 'ping' && me) {

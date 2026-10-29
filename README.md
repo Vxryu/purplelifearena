@@ -203,3 +203,7 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 ## Speed cap 25 u/s and square start zone
 - Parkour top speed is now 25 u/s (`SPEED_CAP` in public/index.html, same value in `tas.js` for the TAS bot). The server's movement budget refills at 30 u/s and the impossible-time check uses 30 u/s. Records set before this change were made with the old 17 u/s cap and are easier to beat.
 - The green start zone is now a box that fills the whole 7x7 start square (it used to be a round beam).
+
+## Start line
+- The clock now starts only when the player crosses the **front edge** of the start platform (the side facing the first platform; `pk.front` in maps.js, one of +x / -x / +z / -z per level). Leaving over the sides or the back does not start it. The green box is gone: a thin green line marks the front edge instead.
+- The TAS bot follows the same rule (same time, 4.92 s on level 1).
