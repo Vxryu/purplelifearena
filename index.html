@@ -1776,7 +1776,10 @@ body.touch #tutcap span { font-size: 0.78rem; }
   // ---------- movement ----------
   // Deathmatch / Campaign / Endless: no bunny hop (capped speed, one jump per key press).
   // Parkour: Quake style air control. Hold Space to chain jumps, turn and strafe in the air to gain speed.
+  const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const turnBonus = (w) => smooth(0.6, 2.0, w) * (1 - smooth(7, 12, w));      // w = camera yaw rate in rad/s: nothing below ~35 deg/s, full from ~115 deg/s, fading out above ~400 deg/s
   function move(dt, alive) {
+    let yawRate = 0; { let dy = P.yaw - (P.pyaw === undefined ? P.yaw : P.pyaw); while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; if (dt > 0) yawRate = Math.abs(dy) / dt; P.pyaw = P.yaw; }
     const pk = !!mapInfo.pk;
     const fwd = alive ? (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) : 0;
     let side = alive ? (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) : 0;
@@ -1823,9 +1826,9 @@ body.touch #tutcap span { font-size: 0.78rem; }
         if (wl > 0) {
           const cap = 0.9, add = cap - (P.vx * wx + P.vz * wz), sp0 = Math.hypot(P.vx, P.vz);
           if (add > 0) { const gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; P.gn = (P.gn || 0) + 1; }
-          // while a move key is held the speed never drops and always rises by the ideal strafe gain, whatever the camera does (a fast turn only changes where you go)
-          const sp1 = Math.hypot(P.vx, P.vz), want = sp0 + (cap * cap * 60 * dt) / (2 * Math.max(sp0, 1));
-          if (sp1 > 0.001 && sp1 < want) { P.vx *= want / sp1; P.vz *= want / sp1; } else if (sp1 <= 0.001) { P.vx = wx * 0.5; P.vz = wz * 0.5; }
+          // turning the camera a bit faster than a lazy turn gives extra acceleration (up to the ideal strafe gain); very fast flicks get nothing extra
+          const f = turnBonus(yawRate);
+          if (f > 0) { const sp1 = Math.hypot(P.vx, P.vz), want = Math.max(sp1, sp0) + f * (cap * cap * 60 * dt) / (2 * Math.max(sp0, 1)); if (sp1 > 0.001) { P.vx *= want / sp1; P.vz *= want / sp1; } }
         }
       }
       const sp2 = Math.hypot(P.vx, P.vz); if (sp2 > SPEED_CAP) { P.vx *= SPEED_CAP / sp2; P.vz *= SPEED_CAP / sp2; }
