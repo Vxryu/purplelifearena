@@ -1821,12 +1821,11 @@ body.touch #tutcap span { font-size: 0.78rem; }
       } else {
         P.air = (P.air || 0) + 1;
         if (wl > 0) {
-          const cap = 0.9, add = cap - (P.vx * wx + P.vz * wz);
-          if (add > 0) {
-            const sp0 = Math.hypot(P.vx, P.vz), gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; P.gn = (P.gn || 0) + 1;
-            // turning the camera fast must never cost speed: when the wish direction points against the movement the air control only steers, it does not brake
-            const sp1 = Math.hypot(P.vx, P.vz); if (sp1 < sp0 && sp1 > 0.001) { P.vx *= sp0 / sp1; P.vz *= sp0 / sp1; }
-          }
+          const cap = 0.9, add = cap - (P.vx * wx + P.vz * wz), sp0 = Math.hypot(P.vx, P.vz);
+          if (add > 0) { const gain = Math.min(add, cap * 60 * dt); P.vx += wx * gain; P.vz += wz * gain; P.gn = (P.gn || 0) + 1; }
+          // while a move key is held the speed never drops and always rises by the ideal strafe gain, whatever the camera does (a fast turn only changes where you go)
+          const sp1 = Math.hypot(P.vx, P.vz), want = sp0 + (cap * cap * 60 * dt) / (2 * Math.max(sp0, 1));
+          if (sp1 > 0.001 && sp1 < want) { P.vx *= want / sp1; P.vz *= want / sp1; } else if (sp1 <= 0.001) { P.vx = wx * 0.5; P.vz = wz * 0.5; }
         }
       }
       const sp2 = Math.hypot(P.vx, P.vz); if (sp2 > SPEED_CAP) { P.vx *= SPEED_CAP / sp2; P.vz *= SPEED_CAP / sp2; }
