@@ -424,7 +424,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
     <h1 id="title">Purple <em>Arena</em></h1>
     <p class="tag">Multiplayer Parkour</p>
     <div class="modes" id="modes" role="radiogroup" aria-label="Game mode" hidden>
-      <button class="mode" type="button" role="radio" data-mode="pk"><svg viewBox="0 0 24 24"><path d="M3 20h5v-4h5v-4h5V8h3"/><path d="M15 4l3-2 3 2"/></svg><b>Parkour</b>11 levels, bunny hop, best times per level.</button>
+      <button class="mode" type="button" role="radio" data-mode="pk"><svg viewBox="0 0 24 24"><path d="M3 20h5v-4h5v-4h5V8h3"/><path d="M15 4l3-2 3 2"/></svg><b>Parkour</b>13 levels, bunny hop, best times per level.</button>
     </div>
     <div id="pkpick" hidden><button id="pkprev" type="button" aria-label="Previous level">&lsaquo;</button><div><span id="pklv">Level 1</span><small id="pkpb"></small></div><button id="pknext" type="button" aria-label="Next level">&rsaquo;</button></div>
     <button id="tutbtn" class="ghost" type="button" hidden>&#9654; Learn to bunny hop (tutorial)</button>
@@ -522,7 +522,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   const TONES = ['#f1c9a5', '#e0ac82', '#c68863', '#8d5a3b', '#5a3a26'];
   const COLORS = ['#b46bff', '#ff4d7a', '#4ad1c2', '#ffb347', '#7aa8ff', '#9be15d', '#f1eaff', '#ff7a45'];
   const MODES = { dm: 'Deathmatch', camp: 'Campaign', endless: 'Endless', pk: 'Parkour' };
-  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space', 'Final Sprint', 'Blink'];
+  const PK_NAMES = ['Scorched Dunes', 'Open Sea', 'Whispering Forest', 'Frozen Peaks', 'Crystal Cave', 'Rusty Factory', 'Molten Core', 'Abyssal Depths', 'Neon City', 'Outer Space', 'Final Sprint', 'Blink', 'Dune Road'];
   const PK_N = PK_NAMES.length;
   // weapon skins, unlocked with your total kills over all matches (saved in this browser)
   const SKINS = [
@@ -603,7 +603,7 @@ body.touch #tutcap span { font-size: 0.78rem; }
   }
   function renderModes() {
     document.querySelectorAll('.mode').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === cfg.mode)));
-    const m = { pk: '12 levels, all open. The last two are short sprints. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
+    const m = { pk: '13 levels, all open. Levels 11 and 12 are short sprints, level 13 is a hole-free road. Hold Space to bunny hop and strafe in the air to build speed. Falling sends you back to the start. Best times are ranked per level.', dm: 'Fight other players. Sensitivity and your look are saved in this browser.', camp: 'Team up against mobs. Beat all 10 levels, bosses wait on levels 3, 5, 7 and 10. If the whole squad goes down, the level restarts.', endless: 'Survive wave after wave with your squad. You only get one life per run. Boss every 5 waves.' };
     if (state === 'menu') setMsg(m[cfg.mode]);
   }
   document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { cfg.mode = b.dataset.mode; saveCfg(); renderModes(); renderPick(); rpRender(); }));

@@ -207,3 +207,7 @@ Le serveur accepte aussi `index.html` à la racine du dépôt si le dossier `pub
 ## Start line
 - The clock now starts only when the player crosses the **front edge** of the start platform (the side facing the first platform; `pk.front` in maps.js, one of +x / -x / +z / -z per level). Leaving over the sides or the back does not start it. The green box is gone: a thin green line marks the front edge instead.
 - The TAS bot follows the same rule (same time, 4.92 s on level 1).
+
+## Level 13 - Dune Road
+- New level without any hole: the same route as level 1 (straight ahead, then a left turn and a long run, desert theme) built as one continuous flat path with platforms of varying width. Defined by `duneRoad()` in maps.js; `PK_LEVELS` is now 13, the name was added to `PK_NAMES` in public/index.html.
+- The score migration no longer deletes level 13 (only 14 and 15 are cleaned).

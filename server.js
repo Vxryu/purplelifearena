@@ -467,7 +467,7 @@ if (!scores._m2) {      // levels were renumbered: the cave level (11) was remov
   delete scores[11]; if (scores[12]) { scores[11] = scores[12]; delete scores[12]; }
   scores._m2 = 1;
 }
-for (const k of [13, 14, 15]) delete scores[k];      // levels 13 to 15 were removed
+for (const k of [14, 15]) delete scores[k];      // levels 14 and 15 were removed
 if (!scores._m3) { delete scores[12]; scores._m3 = 1; }      // level 12 was replaced by a new, even shorter map
 let saveT = null;
 function saveScores() { if (saveT) return; saveT = setTimeout(() => { saveT = null; fs.writeFile(SCORE_FILE, JSON.stringify(scores), () => {}); }, 2000); }

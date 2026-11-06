@@ -162,7 +162,8 @@ const PK_INFO = [
   { th: 'neon', name: 'Neon City', col: 0x2b1b55 },
   { th: 'space', name: 'Outer Space', col: 0x3a3a5a },
   { th: 'neon', name: 'Final Sprint', col: 0x3b2470 },
-  { th: 'volcano', name: 'Blink', col: 0x4a2a22 }
+  { th: 'volcano', name: 'Blink', col: 0x4a2a22 },
+  { th: 'desert', name: 'Dune Road', col: 13213798 }
 ];
 const PK_LEVELS = PK_INFO.length;
 function airtime(dy) { const disc = 49 - 40 * dy; return disc < 0 ? 0 : (7 + Math.sqrt(disc)) / 20; }
@@ -171,7 +172,28 @@ function gapDist(a, b) {
   return Math.hypot(dx, dz);
 }
 const PK_SALT = {10: 2};   // levels re-rolled after the reachability test found an impossible jump
+// Level 13 "Dune Road": the same route as level 1 (straight ahead, then a left turn and a long run) but as one continuous path without any hole.
+function duneRoad() {
+  const col = PK_INFO[12].col, boxes = [], mk = (x0, x1, z0, z1, kind) => { const b = B(kind || 'plat', (x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0.7, col, -0.7); b.top = 0; boxes.push(b); return b; };
+  const start = mk(-3.5, 3.5, -3.5, 3.5, 'start');
+  // part 1: along -z, platform widths and small side offsets like level 1
+  const A = [[-0.2, 6.5, -13.25], [-0.1, 4.8, -21.25]];
+  let zEnd = -3.5; for (const [cx, w, z1] of A) { mk(cx - w / 2, cx + w / 2, z1, zEnd); zEnd = z1; }
+  const cx3 = -0.3, w3 = 5.8; mk(cx3 - w3 / 2, cx3 + w3 / 2, -36.3, zEnd);      // the corner piece
+  // part 2: along -x, same z centre line as level 1 (depths vary)
+  const Bp = [[-33.2, 5.2, -12.15], [-33.0, 6.8, -20.1], [-33.2, 5.9, -28.1], [-33.4, 6.3, -36.1], [-33.4, 6.4, -44.25], [-33.5, 7.0, -52.05], [-33.5, 6.0, -59.8]];
+  let xEnd = cx3 - w3 / 2; for (const [cz, d, x1] of Bp) { mk(x1, xEnd, cz - d / 2, cz + d / 2); xEnd = x1; }
+  const fin = mk(-65.8, -59.8, -36.4, -30.4, 'finish');
+  let minX = 0, maxX = 0, minZ = 0, maxZ = 0; for (const b of boxes) { minX = Math.min(minX, b.x - b.w / 2); maxX = Math.max(maxX, b.x + b.w / 2); minZ = Math.min(minZ, b.z - b.d / 2); maxZ = Math.max(maxZ, b.z + b.d / 2); }
+  return {
+    id: 'pk13', name: 'Level 13 - ' + PK_INFO[12].name, biome: 'desert', th: 'desert', half: 2000, boxes, spawns: [[0, 0]], pk: {
+      lv: 13, n: PK_LEVELS, start: [0, 0, 0], front: [0, -1], cps: [], cpR: 4.2, fin: [fin.x, 0, fin.z], kill: -0.7 - 14, pathLen: 96,
+      bounds: [minX - 20, maxX + 20, minZ - 20, maxZ + 20, -0.7, 0]
+    }
+  };
+}
 function parkour(L) {
+  if (L === 13) return duneRoad();
   const SL = L === 11 ? 12 : L === 12 ? 13 : L, r = rng(SL * 7919 + 13 + (PK_SALT[L] || 0) * 104729), t = Math.min((SL - 1) / 9, 1.1), band = PK_INFO[L - 1], big = band.th === 'cavern';     // t keeps the old value for levels 1-10, so their layouts did not change; the last level is long, hard and roomy
   const f = big ? 0.7 : 0.4 + 0.22 * t, V = 8.6, boxes = [], plats = [], cps = [];     // gentler than before: shorter gaps, bigger platforms
   const N = big ? 54 : L === 11 ? 6 : L === 12 ? 2 : 10 + Math.round(L * 2.2);
